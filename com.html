@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Jeu du Dinosaure</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #1a1a2e;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        canvas {
+            border: 3px solid #333;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="jeu" width="600" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById('jeu');
+        const ctx = canvas.getContext('2d');
+        
+        let dinoX = 50;
+        let dinoY = 150;
+        let dinoVitesse = 0;
+        let enTrainDeSauter = false;
+        let cactusX = 600;
+        let jeuTermine = false;
+        let score = 0;
+        let nuagex = 600;
+        let nuagey = 80;
+        let dinoSelectionne = null;
+        let menuActif = true;
+        
+        let oiseauX = 600;
+        let oiseauY = 100;
+        let oiseauVitesse = 3;
+        let ailePhase = 0;
+
+        function creerFondDegrade() {
+            let degrade;
+            
+            if (score < 10) {
+                degrade = ctx.createLinearGradient(0, 0, 0, 400);
+                degrade.addColorStop(0, '#87CEEB');
+                degrade.addColorStop(0.7, '#98D8E8');
+                degrade.addColorStop(1, '#B0E2FF');
+            } else if (score < 20) {
+                degrade = ctx.createLinearGradient(0, 0, 0, 400);
+                degrade.addColorStop(0, '#FF7F50'); // Corail
+                degrade.addColorStop(0.5, '#FF6347'); // Tomate
+                degrade.addColorStop(1, '#FF4500'); // Orange rouge
+            } else if (score < 30) {
+                degrade = ctx.createLinearGradient(0, 0, 0, 400);
+                degrade.addColorStop(0, '#4B0082'); // Indigo
+                degrade.addColorStop(0.5, '#8A2BE2'); // Bleu violet
+                degrade.addColorStop(1, '#9370DB'); // Violet moyen
+            } else if (score < 40) {
+                degrade = ctx.createLinearGradient(0, 0, 0, 400);
+                degrade.addColorStop(0, '#191970'); // Bleu nuit
+                degrade.addColorStop(0.7, '#000080');
+                degrade.addColorStop(1, '#000033');
+            } else {
+                degrade = ctx.createLinearGradient(0, 0, 0, 400);
+                degrade.addColorStop(0, '#00CED1'); // Turquoise foncé
+                degrade.addColorStop(0.3, '#32CD32'); // Lime vert
+                degrade.addColorStop(0.6, '#FF1493'); // Rose profond
+                degrade.addColorStop(1, '#8B008B'); // Magenta foncé
+            }
+            
+            return degrade;
+        }
+
+        function dessinerEtoiles() {
+            if (score >= 30) {
+                ctx.fillStyle = 'white';
+                for (let i = 0; i < 20; i++) {
+                    const x = Math.random() * 600;
+                    const y = Math.random() * 150;
+                    const size = Math.random() * 1.5 + 0.5;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function dessinerOiseau() {
+            ctx.save();
+            
+            ctx.fillStyle = score >= 30 ? '#8B7355' : '#FF6B6B';
+            ctx.beginPath();
+            ctx.ellipse(oiseauX, oiseauY, 8, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(oiseauX + 10, oiseauY - 2, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#FFA500';
+            ctx.beginPath();
+            ctx.moveTo(oiseauX + 13, oiseauY - 2);
+            ctx.lineTo(oiseauX + 18, oiseauY - 2);
+            ctx.lineTo(oiseauX + 14, oiseauY + 1);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(oiseauX + 11, oiseauY - 3, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = score >= 30 ? '#696969' : '#FF5252';
+            const aileHauteur = Math.sin(ailePhase) * 3 + 8;
+            ctx.beginPath();
+            ctx.ellipse(oiseauX - 5, oiseauY, 6, aileHauteur, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(oiseauX - 8, oiseauY);
+            ctx.lineTo(oiseauX - 15, oiseauY - 5);
+            ctx.lineTo(oiseauX - 15, oiseauY + 5);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        function deplacerOiseau() {
+            oiseauX -= oiseauVitesse;
+            ailePhase += 0.3;
+            
+            if (oiseauX < -30) {
+                oiseauX = 600;
+                oiseauY = Math.random() * 80 + 50;
+            }
+        }
+
+        function dessinernuage() {
+            ctx.fillStyle = score >= 30 ? 'rgba(200, 200, 255, 0.8)' : 'rgba(255, 255, 255, 0.9)';
+            ctx.beginPath();
+            ctx.arc(nuagex, nuagey, 15, 0, Math.PI * 2);
+            ctx.arc(nuagex + 20, nuagey - 5, 18, 0, Math.PI * 2);
+            ctx.arc(nuagex + 40, nuagey, 15, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function deplacernuage() {
+            nuagex -= 2;
+            if (nuagex < -60) {
+                nuagex = 600;
+            }
+        }
+
+        function dessinerTRex() {
+            ctx.fillStyle = '#556B2F';
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 25, dinoY + 25, 20, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#6B8E23';
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 45, dinoY + 15, 12, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 55, dinoY + 15, 8, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(dinoX + 48, dinoY + 12, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(dinoX + 49, dinoY + 12, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#F8F8FF';
+            for(let i = 0; i < 6; i++) {
+                ctx.beginPath();
+                ctx.moveTo(dinoX + 50 + i*2, dinoY + 18);
+                ctx.lineTo(dinoX + 51 + i*2, dinoY + 22);
+                ctx.lineTo(dinoX + 52 + i*2, dinoY + 18);
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            ctx.fillStyle = '#556B2F';
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 15, dinoY + 35, 6, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 30, dinoY + 35, 6, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 35, dinoY + 30, 4, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 45, dinoY + 30, 4, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(dinoX + 5, dinoY + 25);
+            ctx.bezierCurveTo(
+                dinoX - 15, dinoY + 15,
+                dinoX - 10, dinoY + 35,
+                dinoX - 5, dinoY + 30
+            );
+            ctx.fill();
+            
+            ctx.fillStyle = '#6B8E23';
+            for(let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.arc(dinoX + 10 + i*8, dinoY + 18, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function dessinerVelociraptor() {
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 20, dinoY + 20, 15, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 38, dinoY + 18, 10, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 46, dinoY + 18, 6, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'yellow';
+            ctx.beginPath();
+            ctx.arc(dinoX + 42, dinoY + 16, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(dinoX + 42.5, dinoY + 16, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#696969';
+            for(let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.moveTo(dinoX + 10, dinoY + 35 + i*3);
+                ctx.lineTo(dinoX + 5, dinoY + 40 + i*3);
+                ctx.lineTo(dinoX + 12, dinoY + 37 + i*3);
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 12, dinoY + 32, 5, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 25, dinoY + 32, 5, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(dinoX + 5, dinoY + 20);
+            ctx.lineTo(dinoX - 10, dinoY + 15);
+            ctx.lineTo(dinoX - 8, dinoY + 25);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = '#A0522D';
+            for(let i = 0; i < 4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(dinoX + 8 + i*6, dinoY + 12);
+                ctx.lineTo(dinoX + 6 + i*6, dinoY + 5);
+                ctx.lineTo(dinoX + 10 + i*6, dinoY + 5);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        function dessinerTriceratops() {
+            ctx.fillStyle = '#A0522D';
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 25, dinoY + 25, 22, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#CD853F';
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 45, dinoY + 20, 15, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#DEB887';
+            ctx.beginPath();
+            ctx.arc(dinoX + 45, dinoY + 20, 20, Math.PI * 0.8, Math.PI * 1.2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#F5F5DC';
+            
+            ctx.beginPath();
+            ctx.moveTo(dinoX + 55, dinoY + 18);
+            ctx.lineTo(dinoX + 60, dinoY + 10);
+            ctx.lineTo(dinoX + 57, dinoY + 20);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(dinoX + 35, dinoY + 15);
+            ctx.lineTo(dinoX + 30, dinoY + 5);
+            ctx.lineTo(dinoX + 38, dinoY + 12);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(dinoX + 55, dinoY + 15);
+            ctx.lineTo(dinoX + 60, dinoY + 5);
+            ctx.lineTo(dinoX + 57, dinoY + 12);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(dinoX + 48, dinoY + 18, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 15, dinoY + 35, 7, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(dinoX + 35, dinoY + 35, 7, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(dinoX + 5, dinoY + 25);
+            ctx.lineTo(dinoX - 5, dinoY + 22);
+            ctx.lineTo(dinoX - 3, dinoY + 28);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = '#A0522D';
+            for(let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.arc(dinoX + 35 + i*6, dinoY + 15, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function dessinerDino() {
+            if (dinoSelectionne === 'trex') {
+                dessinerTRex();
+            } else if (dinoSelectionne === 'velociraptor') {
+                dessinerVelociraptor();
+            } else if (dinoSelectionne === 'triceratops') {
+                dessinerTriceratops();
+            }
+        }
+
+        function afficherMenu() {
+            const menuFond = ctx.createLinearGradient(0, 0, 600, 400);
+            menuFond.addColorStop(0, '#1a1a2e');
+            menuFond.addColorStop(1, '#16213e');
+            ctx.fillStyle = menuFond;
+            ctx.fillRect(0, 0, 600, 400);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 28px Arial';
+            ctx.fillText('CHOISISSEZ VOTRE DINOSAURE', 70, 50);
+            
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            
+            ctx.strokeRect(50, 100, 150, 200);
+            ctx.font = '18px Arial';
+            ctx.fillText('T-REX', 95, 320);
+            ctx.save();
+            ctx.translate(125, 180);
+            let tempX = dinoX;
+            let tempY = dinoY;
+            dinoX = 0;
+            dinoY = 0;
+            dessinerTRex();
+            dinoX = tempX;
+            dinoY = tempY;
+            ctx.restore();
+            
+            ctx.strokeRect(225, 100, 150, 200);
+            ctx.fillText('VÉLOCIRAPTOR', 235, 320);
+            ctx.save();
+            ctx.translate(300, 180);
+            dinoX = 0;
+            dinoY = 0;
+            dessinerVelociraptor();
+            dinoX = tempX;
+            dinoY = tempY;
+            ctx.restore();
+            
+            ctx.strokeRect(400, 100, 150, 200);
+            ctx.fillText('TRICÉRATOPS', 415, 320);
+            ctx.save();
+            ctx.translate(475, 180);
+            dinoX = 0;
+            dinoY = 0;
+            dessinerTriceratops();
+            dinoX = tempX;
+            dinoY = tempY;
+            ctx.restore();
+            
+            ctx.font = '16px Arial';
+            ctx.fillText('Cliquez sur un dinosaure pour commencer', 140, 370);
+        }
+
+        function dessinerCactus(X) {
+            ctx.fillStyle = '#2d6b2d';
+            ctx.fillRect(X, 150, 16, 50);
+            ctx.fillRect(X - 12, 155, 15, 8);
+            ctx.fillRect(X - 12, 145, 8, 18);
+            ctx.fillRect(X + 13, 160, 15, 8);
+            ctx.fillRect(X + 20, 150, 8, 18);
+            
+            ctx.strokeStyle = '#1a4d1a';
+            ctx.lineWidth = 2;
+            
+            for (let i = 0; i < 6; i++) {
+                let y = 145 + (i * 10);
+                ctx.beginPath();
+                ctx.moveTo(X, y);
+                ctx.lineTo(X - 4, y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(X + 16, y);
+                ctx.lineTo(X + 20, y);
+                ctx.stroke();
+            }
+        }
+
+        function aff() {
+            if (score >= 10 && score <= 20) {
+                ctx.fillText("Suck my dickkkkkkk", 300, 300)
+            } else if (score >= 30 && score <= 50) {
+                ctx.fillText("oni--channnnnnnn", 300, 300)
+            }
+        }
+        function dessinerSol() {
+            ctx.fillStyle = score >= 30 ? '#2d2d2d' : '#8B4513';
+            ctx.fillRect(0, 200, 600, 100);
+            ctx.strokeStyle = score >= 30 ? '#555' : '#654321';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 200);
+            ctx.lineTo(600, 200);
+            ctx.stroke();
+            
+        }
+
+        function afficherScore() {
+            ctx.fillStyle = score >= 30 ? 'white' : 'black';
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText('Score: ' + score, 10, 30);
+            
+        }
+
+        function sauter() {
+            if (!enTrainDeSauter) {
+                dinoVitesse = -12;
+                enTrainDeSauter = true;
+            }
+        }
+
+        function deplacerDino() {
+            dinoY += dinoVitesse;
+            
+            if (dinoY < 150) {
+                dinoVitesse += 0.6;
+            }
+            
+            if (dinoY >= 150) {
+                dinoY = 150;
+                dinoVitesse = 0;
+                enTrainDeSauter = false;
+            }
+        }
+        
+        function deplacerCactus() {
+            cactusX -= 5;
+            
+            if (cactusX < -30) {
+                cactusX = 600;
+                score +=5;
+            }
+        }
+
+        function verifierCollision() {
+            let dinoGauche = dinoX + 5;
+            let dinoDroit = dinoX + 40;
+            let dinoHaut = dinoY;
+            let dinoBas = dinoY + 40;
+            
+            let cactusGauche = cactusX - 12;
+            let cactusDroit = cactusX + 28;
+            let cactusHaut = 150;
+            let cactusBas = 200;
+            
+            if (dinoDroit > cactusGauche && 
+                dinoGauche < cactusDroit && 
+                dinoBas > cactusHaut && 
+                dinoHaut < cactusBas) {
+                jeuTermine = true;
+            }
+        }
+
+        function afficherGameOver() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, 600, 400);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 40px Arial';
+            ctx.fillText('GAME OVER', 180, 80);
+            ctx.font = '20px Arial';
+            ctx.fillText('Score final: ' + score, 230, 120);
+            ctx.fillText('Appuyez sur ESPACE pour rejouer', 140, 150);
+        }
+
+        function recommencer() {
+            dinoY = 150;
+            dinoVitesse = 0;
+            enTrainDeSauter = false;
+            cactusX = 600;
+            jeuTermine = false;
+            score = 0;
+            oiseauX = 600;
+            oiseauY = 100;
+        }
+
+        function boucleDeJeu() {
+            ctx.fillStyle = creerFondDegrade();
+            ctx.fillRect(0, 0, 600, 400);
+            
+            dessinerEtoiles();
+            
+            if (menuActif) {
+                afficherMenu();
+            } else {
+                dessinerSol();
+                dessinernuage();
+                dessinerOiseau();
+                if (score % 2 == 0) {
+                    dessinerCactus(cactusX);
+                    dessinerCactus(cactusX + 20);
+                } else if (score % 3 == 0 && score % 2 != 0) {
+                    dessinerCactus(cactusX);
+                    dessinerCactus(cactusX - 20);
+                    dessinerCactus(cactusX + 20);
+                } else {
+                    dessinerCactus(cactusX);
+                }
+                dessinerDino();
+                afficherScore();
+                if (!jeuTermine) {
+                    deplacerDino();
+                    deplacerCactus();
+                    deplacernuage();
+                    deplacerOiseau();
+                    verifierCollision();
+                    aff();
+                } else {
+                    afficherGameOver();
+                }
+            }
+            
+            requestAnimationFrame(boucleDeJeu);
+        }
+
+        canvas.addEventListener('click', function(event) {
+            if (menuActif) {
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                if (x >= 50 && x <= 200 && y >= 100 && y <= 300) {
+                    dinoSelectionne = 'trex';
+                    menuActif = false;
+                } else if (x >= 225 && x <= 375 && y >= 100 && y <= 300) {
+                    dinoSelectionne = 'velociraptor';
+                    menuActif = false;
+                } else if (x >= 400 && x <= 550 && y >= 100 && y <= 300) {
+                    dinoSelectionne = 'triceratops';
+                    menuActif = false;
+                }
+            }
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if (event.code === 'Space') {
+                event.preventDefault();
+                if (jeuTermine) {
+                    recommencer();
+                } else {
+                    sauter();
+                }
+            }
+        });
+
+        boucleDeJeu();
+    </script>
+</body>
+</html>
