@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeGrand Express – Livraison Cotonou & Calavi</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red: #E8180C;
+      --red-dim: #b01008;
+      --bg: #080808;
+      --surface: #111111;
+      --surface2: #1a1a1a;
+      --border: rgba(255,255,255,0.07);
+      --text: #f0f0f0;
+      --muted: #888;
+      --radius: 18px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 5%;
+      background: rgba(8,8,8,0.75);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--border);
+      transition: padding 0.3s;
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.3rem;
+      color: var(--text);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: var(--red);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    nav { display: flex; gap: 8px; align-items: center; }
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      padding: 8px 16px;
+      border-radius: 40px;
+      transition: color 0.2s, background 0.2s;
+    }
+    nav a:hover { color: white; background: var(--surface2); }
+    .nav-cta {
+      background: var(--red) !important;
+      color: white !important;
+      font-weight: 500;
+    }
+    .nav-cta:hover { background: var(--red-dim) !important; }
+
+    .burger {
+      display: none; flex-direction: column; gap: 5px; cursor: pointer;
+      padding: 6px;
+    }
+    .burger span {
+      width: 24px; height: 2px; background: white;
+      border-radius: 2px; transition: all 0.3s;
+    }
+
+    .mobile-nav {
+      display: none; position: fixed; top: 70px; left: 0; right: 0;
+      background: rgba(10,10,10,0.97); backdrop-filter: blur(20px);
+      padding: 20px 5%; flex-direction: column; gap: 8px;
+      border-bottom: 1px solid var(--border);
+      z-index: 99;
+    }
+    .mobile-nav.open { display: flex; }
+    .mobile-nav a {
+      color: var(--text); text-decoration: none;
+      padding: 14px 0; border-bottom: 1px solid var(--border);
+      font-size: 1.1rem; font-weight: 500;
+      transition: color 0.2s;
+    }
+    .mobile-nav a:hover { color: var(--red); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center;
+      padding: 120px 5% 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute; inset: 0;
+      background: url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat;
+      filter: brightness(0.18) saturate(0.5);
+      transform: scale(1.05);
+      animation: bgZoom 20s ease-in-out infinite alternate;
+    }
+    @keyframes bgZoom { to { transform: scale(1.0); } }
+
+    .hero-glow {
+      position: absolute; bottom: -100px; left: 50%; transform: translateX(-50%);
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(232,24,12,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative; z-index: 2;
+      max-width: 760px;
+      opacity: 0; animation: fadeUp 0.9s 0.2s forwards;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(232,24,12,0.12);
+      border: 1px solid rgba(232,24,12,0.3);
+      border-radius: 40px;
+      padding: 6px 16px;
+      font-size: 0.8rem; color: #ff6b61; letter-spacing: 0.05em;
+      text-transform: uppercase; font-weight: 600;
+      margin-bottom: 28px;
+    }
+    .pulse-dot {
+      width: 7px; height: 7px; background: var(--red);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(232,24,12,0.6); }
+      50% { box-shadow: 0 0 0 6px rgba(232,24,12,0); }
+    }
+
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2.5rem, 7vw, 5rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+    }
+    .hero h1 em {
+      font-style: normal;
+      color: var(--red);
+      position: relative;
+    }
+    .hero h1 em::after {
+      content: '';
+      position: absolute;
+      bottom: -4px; left: 0; right: 0;
+      height: 3px;
+      background: var(--red);
+      border-radius: 2px;
+      transform: scaleX(0); transform-origin: left;
+      animation: lineGrow 0.6s 1.1s forwards;
+    }
+    @keyframes lineGrow { to { transform: scaleX(1); } }
+
+    .hero p {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--muted);
+      margin-bottom: 40px;
+      line-height: 1.7;
+    }
+
+    .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+    .btn-primary {
+      padding: 15px 32px;
+      background: var(--red);
+      color: white;
+      border-radius: 50px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+      border: none; cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+      box-shadow: 0 4px 30px rgba(232,24,12,0.3);
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary:hover {
+      background: var(--red-dim);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 40px rgba(232,24,12,0.45);
+    }
+
+    .btn-outline {
+      padding: 15px 32px;
+      background: transparent;
+      color: white;
+      border-radius: 50px;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 1rem;
+      border: 1px solid rgba(255,255,255,0.2);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-outline:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.4); }
+
+    .hero-stats {
+      margin-top: 64px;
+      display: flex; gap: 40px; justify-content: center; flex-wrap: wrap;
+      opacity: 0; animation: fadeUp 0.9s 0.7s forwards;
+    }
+    .stat { text-align: center; }
+    .stat-num {
+      font-family: 'Syne', sans-serif;
+      font-size: 2rem; font-weight: 800;
+      color: white;
+    }
+    .stat-num span { color: var(--red); }
+    .stat-label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+
+    /* ── SCROLL TICKER ── */
+    .ticker-wrap {
+      overflow: hidden;
+      background: var(--red);
+      padding: 12px 0;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .ticker {
+      display: flex; gap: 60px;
+      white-space: nowrap;
+      animation: ticker 22s linear infinite;
+    }
+    .ticker span { font-size: 0.85rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+    /* ── SECTION ── */
+    section { padding: 100px 5%; }
+    .section-label {
+      display: inline-block;
+      font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--red);
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 800; line-height: 1.2;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+    .section-sub { color: var(--muted); font-size: 1rem; line-height: 1.7; max-width: 520px; }
+    .section-head { margin-bottom: 56px; }
+
+    /* ── SERVICES ── */
+    #services { background: var(--surface); }
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+    }
+
+    .service-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+      cursor: default;
+      position: relative; overflow: hidden;
+    }
+    .service-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 80% 20%, rgba(232,24,12,0.07), transparent 60%);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .service-card:hover { transform: translateY(-6px); border-color: rgba(232,24,12,0.3); box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+    .service-card:hover::before { opacity: 1; }
+
+    .service-icon {
+      font-size: 2.4rem; margin-bottom: 20px;
+      width: 60px; height: 60px;
+      background: rgba(232,24,12,0.1);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .service-card h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.2rem; font-weight: 700; margin-bottom: 10px;
+    }
+    .service-card p { color: var(--muted); font-size: 0.9rem; line-height: 1.65; }
+    .service-tag {
+      margin-top: 20px;
+      display: inline-block;
+      font-size: 0.75rem; font-weight: 600;
+      color: var(--red);
+      background: rgba(232,24,12,0.08);
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0;
+      position: relative;
+    }
+    .steps::before {
+      content: '';
+      position: absolute; top: 36px; left: 10%; right: 10%;
+      height: 1px; background: var(--border);
+    }
+    .step { text-align: center; padding: 20px; position: relative; }
+    .step-num {
+      width: 56px; height: 56px;
+      background: var(--red);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-size: 1.3rem; font-weight: 800;
+      margin: 0 auto 24px;
+      position: relative; z-index: 1;
+      box-shadow: 0 0 0 8px var(--bg);
+    }
+    .step h4 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.05rem; font-weight: 700; margin-bottom: 8px;
+    }
+    .step p { color: var(--muted); font-size: 0.88rem; line-height: 1.6; }
+
+    /* ── ZONES ── */
+    #zones { background: var(--surface); }
+    .zones-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+    .zone-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 20px;
+      transition: border-color 0.3s, transform 0.3s;
+      text-align: center;
+    }
+    .zone-card:hover { border-color: var(--red); transform: scale(1.03); }
+    .zone-card .zone-emoji { font-size: 1.8rem; margin-bottom: 12px; }
+    .zone-card h4 { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+    .zone-card .zone-price { color: var(--red); font-size: 0.85rem; font-weight: 600; }
+
+    /* ── COMMANDE ── */
+    #commande .inner {
+      max-width: 700px; margin: 0 auto;
+    }
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 44px;
+    }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 560px) { .form-row { grid-template-columns: 1fr; } }
+
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    label { font-size: 0.82rem; color: var(--muted); font-weight: 500; letter-spacing: 0.03em; text-transform: uppercase; }
+
+    input, select, textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: white;
+      padding: 14px 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(232,24,12,0.12);
+    }
+    select option { background: #1a1a1a; }
+    textarea { resize: vertical; min-height: 90px; }
+
+    .price-display {
+      background: linear-gradient(135deg, rgba(232,24,12,0.1), rgba(232,24,12,0.04));
+      border: 1px solid rgba(232,24,12,0.25);
+      border-radius: 14px;
+      padding: 20px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .price-label { color: var(--muted); font-size: 0.9rem; }
+    .price-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 2rem; font-weight: 800;
+      color: var(--red);
+      transition: all 0.3s;
+    }
+
+    .wa-btn {
+      width: 100%;
+      padding: 18px;
+      background: #25D366;
+      color: white;
+      border: none; cursor: pointer;
+      border-radius: 14px;
+      font-family: 'Syne', sans-serif;
+      font-size: 1.05rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .wa-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 40px rgba(37,211,102,0.3);
+    }
+    .wa-icon { font-size: 1.4rem; }
+
+    /* ── TÉMOIGNAGES ── */
+    .reviews-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .review-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: transform 0.3s;
+    }
+    .review-card:hover { transform: translateY(-4px); }
+    .stars { color: #f5a623; font-size: 0.9rem; margin-bottom: 14px; }
+    .review-text { color: var(--muted); font-size: 0.92rem; line-height: 1.7; margin-bottom: 20px; font-style: italic; }
+    .reviewer { display: flex; align-items: center; gap: 12px; }
+    .reviewer-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--red);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.9rem; flex-shrink: 0;
+    }
+    .reviewer-name { font-weight: 600; font-size: 0.9rem; }
+    .reviewer-loc { font-size: 0.78rem; color: var(--muted); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: #000;
+      border-top: 1px solid var(--border);
+      padding: 60px 5% 30px;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 48px;
+    }
+    .footer-brand p { color: var(--muted); font-size: 0.9rem; line-height: 1.7; margin-top: 14px; max-width: 300px; }
+    .footer-col h5 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700; font-size: 0.9rem; margin-bottom: 16px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .footer-col a {
+      display: block; color: var(--muted); text-decoration: none;
+      font-size: 0.88rem; margin-bottom: 10px;
+      transition: color 0.2s;
+    }
+    .footer-col a:hover { color: var(--red); }
+    .footer-bottom {
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .footer-bottom p { font-size: 0.82rem; color: var(--muted); }
+    .social-links { display: flex; gap: 12px; }
+    .social-links a {
+      width: 36px; height: 36px;
+      background: var(--surface2);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      text-decoration: none; font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    .social-links a:hover { background: var(--red); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .reveal {
+      opacity: 0; transform: translateY(30px);
+      transition: opacity 0.7s, transform 0.7s;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+      .footer-brand { grid-column: 1/-1; }
+      .steps::before { display: none; }
+    }
+    @media (max-width: 640px) {
+      nav { display: none; }
+      .burger { display: flex; }
+      .footer-grid { grid-template-columns: 1fr; }
+      .form-card { padding: 32px 24px; }
+      .steps { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🚚</div>
+    LeGrand Express
+  </div>
+  <nav>
+    <a href="#">Accueil</a>
+    <a href="#services">Services</a>
+    <a href="#comment">Comment ça marche</a>
+    <a href="#commande" class="nav-cta">Commander</a>
+  </nav>
+  <div class="burger" onclick="toggleMenu()" id="burger">
+    <span></span><span></span><span></span>
+  </div>
+</header>
+
+<div class="mobile-nav" id="mobileNav">
+  <a href="#" onclick="closeMenu()">Accueil</a>
+  <a href="#services" onclick="closeMenu()">Services</a>
+  <a href="#comment" onclick="closeMenu()">Comment ça marche</a>
+  <a href="#zones" onclick="closeMenu()">Zones</a>
+  <a href="#commande" onclick="closeMenu()">Commander</a>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <div class="pulse-dot"></div>
+      Livraison disponible maintenant
+    </div>
+    <h1>Livraison <em>rapide</em> et<br>fiable à Cotonou</h1>
+    <p>Colis, nourriture, courses – livrés en express<br>à Cotonou, Calavi et environs. Rapide. Sûr. Simple.</p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="#commande">Commander maintenant →</a>
+      <a class="btn-outline" href="#comment">Comment ça marche</a>
+    </div>
+  </div>
+  <div class="hero-stats">
+    <div class="stat">
+      <div class="stat-num">500<span>+</span></div>
+      <div class="stat-label">Livraisons / mois</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">30<span>min</span></div>
+      <div class="stat-label">Délai moyen</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">4.9<span>★</span></div>
+      <div class="stat-label">Note clients</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">2<span> villes</span></div>
+      <div class="stat-label">Zones couvertes</div>
+    </div>
+  </div>
+</section>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker">
+    <span>⚡ Livraison express</span>
+    <span>📦 Colis sécurisé</span>
+    <span>🍔 Nourriture chaude</span>
+    <span>🛒 Courses rapides</span>
+    <span>📍 Cotonou & Calavi</span>
+    <span>✅ 100% fiable</span>
+    <span>⚡ Livraison express</span>
+    <span>📦 Colis sécurisé</span>
+    <span>🍔 Nourriture chaude</span>
+    <span>🛒 Courses rapides</span>
+    <span>📍 Cotonou & Calavi</span>
+    <span>✅ 100% fiable</span>
+  </div>
+</div>
+
+<!-- SERVICES -->
+<section id="services">
+  <div class="section-head reveal">
+    <span class="section-label">Ce qu'on fait</span>
+    <h2 class="section-title">Nos Services</h2>
+    <p class="section-sub">Du colis urgent à la livraison de repas chaud – on s'occupe de tout avec rapidité et soin.</p>
+  </div>
+  <div class="services-grid">
+    <div class="service-card reveal">
+      <div class="service-icon">📦</div>
+      <h3>Livraison de Colis</h3>
+      <p>Documents, vêtements, gadgets ou tout autre objet. Votre colis livré intact et en temps record.</p>
+      <span class="service-tag">À partir de 1 500 FCFA</span>
+    </div>
+    <div class="service-card reveal">
+      <div class="service-icon">🍔</div>
+      <h3>Nourriture & Repas</h3>
+      <p>Votre repas préféré livré chaud depuis vos restaurants favoris de Cotonou et Calavi.</p>
+      <span class="service-tag">À partir de 2 000 FCFA</span>
+    </div>
+    <div class="service-card reveal">
+      <div class="service-icon">🛒</div>
+      <h3>Courses & Emplettes</h3>
+      <p>On fait vos courses au marché ou en supermarché et on vous les livre directement chez vous.</p>
+      <span class="service-tag">À partir de 1 700 FCFA</span>
+    </div>
+    <div class="service-card reveal">
+      <div class="service-icon">⚡</div>
+      <h3>Express Prioritaire</h3>
+      <p>Urgence totale ? Notre service express garantit une prise en charge immédiate, livraison en priorité absolue.</p>
+      <span class="service-tag">Supplément rapide</span>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="comment">
+  <div class="section-head reveal" style="text-align:center">
+    <span class="section-label">Processus</span>
+    <h2 class="section-title">Comment ça marche ?</h2>
+    <p class="section-sub" style="margin:0 auto">Commander une livraison n'a jamais été aussi simple. En 3 étapes, c'est réglé.</p>
+  </div>
+  <div class="steps">
+    <div class="step reveal">
+      <div class="step-num">1</div>
+      <h4>Remplissez le formulaire</h4>
+      <p>Choisissez votre type de livraison, votre zone et laissez vos coordonnées.</p>
+    </div>
+    <div class="step reveal">
+      <div class="step-num">2</div>
+      <h4>Confirmation WhatsApp</h4>
+      <p>Votre commande arrive directement sur notre WhatsApp. On confirme en quelques minutes.</p>
+    </div>
+    <div class="step reveal">
+      <div class="step-num">3</div>
+      <h4>Livraison chez vous</h4>
+      <p>Notre livreur prend en charge votre commande et vous l'apporte rapidement.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ZONES -->
+<section id="zones">
+  <div class="section-head reveal">
+    <span class="section-label">Couverture</span>
+    <h2 class="section-title">Zones desservies</h2>
+    <p class="section-sub">Nous couvrons les principales zones de Cotonou et Calavi. Tarifs selon la distance.</p>
+  </div>
+  <div class="zones-grid">
+    <div class="zone-card reveal">
+      <div class="zone-emoji">🏙️</div>
+      <h4>Zone Proche</h4>
+      <p style="color:var(--muted);font-size:0.82rem;margin-bottom:8px">Quartiers voisins</p>
+      <div class="zone-price">+500 FCFA</div>
+    </div>
+    <div class="zone-card reveal">
+      <div class="zone-emoji">🗺️</div>
+      <h4>Zone Moyenne</h4>
+      <p style="color:var(--muted);font-size:0.82rem;margin-bottom:8px">Cotonou centre</p>
+      <div class="zone-price">+1 000 FCFA</div>
+    </div>
+    <div class="zone-card reveal">
+      <div class="zone-emoji">📍</div>
+      <h4>Zone Éloignée</h4>
+      <p style="color:var(--muted);font-size:0.82rem;margin-bottom:8px">Calavi & banlieues</p>
+      <div class="zone-price">+2 000 FCFA</div>
+    </div>
+    <div class="zone-card reveal">
+      <div class="zone-emoji">🤝</div>
+      <h4>Zone Sur Devis</h4>
+      <p style="color:var(--muted);font-size:0.82rem;margin-bottom:8px">Hors périmètre</p>
+      <div class="zone-price">Contactez-nous</div>
+    </div>
+  </div>
+</section>
+
+<!-- COMMANDE -->
+<section id="commande">
+  <div class="inner">
+    <div class="section-head reveal" style="text-align:center">
+      <span class="section-label">Passer une commande</span>
+      <h2 class="section-title">Commander une livraison</h2>
+      <p class="section-sub" style="margin:0 auto">Remplissez le formulaire ci-dessous. Votre commande sera envoyée directement sur WhatsApp.</p>
+    </div>
+    <div class="form-card reveal">
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Votre nom</label>
+            <input type="text" id="nom" placeholder="Ex: Kouamé Jean" required />
+          </div>
+          <div class="form-group">
+            <label>Téléphone</label>
+            <input type="tel" id="tel" placeholder="+229 xx xx xx xx" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Adresse de prise en charge</label>
+          <input type="text" id="adresse_debut" placeholder="D'où on récupère la commande ?" />
+        </div>
+
+        <div class="form-group">
+          <label>Adresse de livraison</label>
+          <input type="text" id="adresse_fin" placeholder="Où livrer ?" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Type de livraison</label>
+            <select id="type" onchange="calculPrix()">
+              <option value="1000">📦 Colis – 1 000 FCFA</option>
+              <option value="1500">🍔 Nourriture – 1 500 FCFA</option>
+              <option value="1200">🛒 Courses – 1 200 FCFA</option>
+              <option value="2000">⚡ Express – 2 000 FCFA</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Zone de livraison</label>
+            <select id="distance" onchange="calculPrix()">
+              <option value="500">Zone proche (+500 FCFA)</option>
+              <option value="1000">Zone moyenne (+1 000 FCFA)</option>
+              <option value="2000">Zone éloignée (+2 000 FCFA)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Instructions spéciales (optionnel)</label>
+          <textarea id="note" placeholder="Précisions sur la commande, étage, point de repère..."></textarea>
+        </div>
+
+        <div class="price-display">
+          <div>
+            <div class="price-label">Estimation du coût total</div>
+            <div style="font-size:0.78rem;color:var(--muted);margin-top:2px">Base + frais de livraison</div>
+          </div>
+          <div class="price-value" id="prix">1 500 FCFA</div>
+        </div>
+
+        <button class="wa-btn" onclick="envoyerWhatsApp()">
+          <span class="wa-icon">💬</span>
+          Commander via WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TÉMOIGNAGES -->
+<section id="avis" style="background:var(--surface)">
+  <div class="section-head reveal">
+    <span class="section-label">Témoignages</span>
+    <h2 class="section-title">Ce que disent nos clients</h2>
+  </div>
+  <div class="reviews-grid">
+    <div class="review-card reveal">
+      <div class="stars">★★★★★</div>
+      <p class="review-text">"Commande reçue en moins de 40 minutes, le repas était encore chaud. Service impeccable, je recommande vivement !"</p>
+      <div class="reviewer">
+        <div class="reviewer-avatar">A</div>
+        <div>
+          <div class="reviewer-name">Aïssatou K.</div>
+          <div class="reviewer-loc">📍 Cotonou, Akpakpa</div>
+        </div>
+      </div>
+    </div>
+    <div class="review-card reveal">
+      <div class="stars">★★★★★</div>
+      <p class="review-text">"Mon colis a été livré avec soin. Le livreur était ponctuel et très professionnel. Parfait pour les urgences !"</p>
+      <div class="reviewer">
+        <div class="reviewer-avatar">M</div>
+        <div>
+          <div class="reviewer-name">Marius D.</div>
+          <div class="reviewer-loc">📍 Calavi, Tokpa</div>
+        </div>
+      </div>
+    </div>
+    <div class="review-card reveal">
+      <div class="stars">★★★★☆</div>
+      <p class="review-text">"J'ai commandé des courses via WhatsApp, tout s'est bien passé. Très pratique, je repasserai certainement."</p>
+      <div class="reviewer">
+        <div class="reviewer-avatar">F</div>
+        <div>
+          <div class="reviewer-name">Fatou N.</div>
+          <div class="reviewer-loc">📍 Cotonou, Fidjrossè</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="logo">
+        <div class="logo-icon">🚚</div>
+        LeGrand Express
+      </div>
+      <p>Le service de livraison rapide et fiable pour Cotonou et Calavi. Colis, nourriture, courses – livrés avec soin.</p>
+    </div>
+    <div class="footer-col">
+      <h5>Navigation</h5>
+      <a href="#">Accueil</a>
+      <a href="#services">Services</a>
+      <a href="#comment">Comment ça marche</a>
+      <a href="#zones">Zones</a>
+      <a href="#commande">Commander</a>
+    </div>
+    <div class="footer-col">
+      <h5>Contact</h5>
+      <a href="https://wa.me/2290190252063">💬 WhatsApp</a>
+      <a href="tel:+2290190252063">📞 +229 01 90 25 20 63</a>
+      <a href="#">📍 Cotonou, Bénin</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2026 LeGrand Express – Tous droits réservés</p>
+    <div class="social-links">
+      <a href="#" title="WhatsApp">💬</a>
+      <a href="#" title="Facebook">📘</a>
+      <a href="#" title="Instagram">📸</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Menu mobile
+  function toggleMenu() {
+    const nav = document.getElementById('mobileNav');
+    nav.classList.toggle('open');
+  }
+  function closeMenu() {
+    document.getElementById('mobileNav').classList.remove('open');
+  }
+
+  // Calcul prix
+  function calculPrix() {
+    const type = parseInt(document.getElementById('type').value);
+    const distance = parseInt(document.getElementById('distance').value);
+    const total = type + distance;
+    const formatted = total.toLocaleString('fr-FR');
+    const el = document.getElementById('prix');
+    el.style.transform = 'scale(1.1)';
+    el.style.color = '#ff4a3a';
+    setTimeout(() => {
+      el.innerText = formatted + ' FCFA';
+      el.style.transform = 'scale(1)';
+      el.style.color = 'var(--red)';
+    }, 100);
+  }
+
+  // WhatsApp
+  function envoyerWhatsApp() {
+    const nom = document.getElementById('nom').value.trim() || 'Non renseigné';
+    const tel = document.getElementById('tel').value.trim() || 'Non renseigné';
+    const type = document.getElementById('type').options[document.getElementById('type').selectedIndex].text;
+    const zone = document.getElementById('distance').options[document.getElementById('distance').selectedIndex].text;
+    const debut = document.getElementById('adresse_debut').value.trim() || 'Non renseigné';
+    const fin = document.getElementById('adresse_fin').value.trim() || 'Non renseigné';
+    const note = document.getElementById('note').value.trim();
+    const prix = document.getElementById('prix').innerText;
+
+    let msg = `🚚 *Nouvelle commande – LeGrand Express*\n\n`;
+    msg += `👤 Nom : ${nom}\n`;
+    msg += `📞 Téléphone : ${tel}\n`;
+    msg += `📦 Type : ${type}\n`;
+    msg += `📍 Départ : ${debut}\n`;
+    msg += `🏠 Destination : ${fin}\n`;
+    msg += `🗺️ Zone : ${zone}\n`;
+    msg += `💰 Prix estimé : ${prix}\n`;
+    if (note) msg += `📝 Note : ${note}\n`;
+
+    const url = "https://wa.me/2290190252063?text=" + encodeURIComponent(msg);
+    window.open(url, '_blank');
+  }
+
+  // Reveal on scroll
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 80);
+      }
+    });
+  }, { threshold: 0.12 });
+  reveals.forEach(el => observer.observe(el));
+
+  // Init prix
+  calculPrix();
+</script>
+</body>
+</html>
