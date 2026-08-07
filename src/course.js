@@ -4,6 +4,7 @@ import { renderIllustration } from "./illustrations.js";
 export function initCourse({ onExit, onScrollTo, onQuiz }) {
   const root = document.getElementById("ui-course");
   const tocEl = root.querySelector("#course-toc");
+  const tocSelect = root.querySelector("#course-toc-select");
   const sectionsEl = root.querySelector("#course-sections");
   const coverEl = root.querySelector("#course-cover");
   const closeBtn = root.querySelector("#course-close");
@@ -60,6 +61,16 @@ export function initCourse({ onExit, onScrollTo, onQuiz }) {
   tocEl.innerHTML = tocHtml.join("");
   sectionsEl.innerHTML = secHtml.join("");
 
+  const selectHtml = [];
+  CHAPITRES.forEach((ch, ci) => {
+    const stations = STATIONS.filter((s) => s.chapter === ci);
+    if (!stations.length) return;
+    selectHtml.push(`<optgroup label="${ch.name}">`);
+    stations.forEach((st) => selectHtml.push(`<option value="${st.id}">${st.num} · ${st.title}</option>`));
+    selectHtml.push(`</optgroup>`);
+  });
+  tocSelect.innerHTML = selectHtml.join("");
+
   // ---------------- Render illustrations ----------------
   sectionsEl.querySelectorAll(".course-illus").forEach((img) => {
     const id = img.closest(".course-section").id.replace("course-sec-", "");
@@ -86,8 +97,14 @@ export function initCourse({ onExit, onScrollTo, onQuiz }) {
       if (sec && sec.offsetTop - 120 <= mainEl.scrollTop) current = st.id;
     }
     tocEl.querySelectorAll(".toc-item").forEach((t) => t.classList.toggle("active", t.dataset.id === current));
+    if (tocSelect.value !== current) tocSelect.value = current;
   }
   mainEl.addEventListener("scroll", setActiveToc, { passive: true });
+
+  tocSelect.addEventListener("change", () => {
+    const sec = document.getElementById("course-sec-" + tocSelect.value);
+    if (sec) scrollTo(sec.offsetTop - 90);
+  });
 
   closeBtn.addEventListener("click", onExit);
   quizBtn.addEventListener("click", onQuiz);
