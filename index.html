@@ -57,11 +57,11 @@
         <div class="card-kicker"></div>
         <h2 class="card-title"></h2>
         <div class="card-rule"></div>
-        <div class="card-body"></div>
+        <div class="card-body" data-lenis-prevent></div>
         <button id="card-open" class="card-open">Lire la leçon →</button>
       </div>
 
-      <div id="ui-quiz">
+      <div id="ui-quiz" data-lenis-prevent>
         <div class="quiz-head">
           <div class="quiz-kicker">Questionnaire — Module 1</div>
           <h2 class="quiz-title">Douze questions pour valider la formation</h2>
@@ -85,7 +85,7 @@
     </div>
 
     <div id="ui-reader">
-      <div class="reader-panel">
+      <div class="reader-panel" data-lenis-prevent>
         <button id="reader-close" class="reader-close" aria-label="Fermer">×</button>
         <div class="reader-kicker"></div>
         <h2 class="reader-title"></h2>
@@ -110,8 +110,8 @@
         <select id="course-toc-select" aria-label="Sommaire"></select>
         <button id="course-close" class="course-close">← Retour au parcours 3D</button>
       </header>
-      <aside class="course-toc" id="course-toc"></aside>
-      <main class="course-main">
+      <aside class="course-toc" id="course-toc" data-lenis-prevent></aside>
+      <main class="course-main" data-lenis-prevent>
         <header class="course-cover" id="course-cover"></header>
         <div id="course-sections"></div>
         <footer class="course-foot">

@@ -3,21 +3,26 @@ import {
   PAL, radialTexture, groundTexture, asphaltTexture, buildRibbon, buildPanel, buildBuilding,
   buildLamp, buildLampGlow, buildDune, buildRock, buildDust, buildBird,
   buildPalm, buildBush, buildCloud, buildSign, buildMountain, buildBench, buildCar,
+  setLowPower, isLowPower,
 } from "./world.js";
 
 export function createScene(canvas, stations) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const isMobile = window.innerWidth <= 760;
+  setLowPower(isMobile);
+  const rb = (n) => (isMobile ? Math.max(2, Math.round(n * 0.45)) : n);
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobile, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !isMobile;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(PAL.skyHorizon, 60, 760);
 
-  const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 900);
+  const camera = new THREE.PerspectiveCamera(isMobile ? 62 : 52, window.innerWidth / window.innerHeight, 0.1, 900);
 
   // ---------------- Sky dome (gradient + stars) ----------------
   const skyMat = new THREE.ShaderMaterial({
@@ -57,7 +62,7 @@ export function createScene(canvas, stations) {
       }
     `,
   });
-  scene.add(new THREE.Mesh(new THREE.SphereGeometry(700, 40, 20), skyMat));
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(700, isMobile ? 24 : 40, isMobile ? 12 : 20), skyMat));
 
   // ---------------- Sun (fixed ahead of camera) ----------------
   const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -88,7 +93,7 @@ export function createScene(canvas, stations) {
 
   // ---------------- Ground ----------------
   const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(1600, 48),
+    new THREE.CircleGeometry(1600, isMobile ? 32 : 48),
     new THREE.MeshStandardMaterial({ map: groundTexture(), roughness: 1.0, metalness: 0.0 })
   );
   ground.rotation.x = -Math.PI / 2;
@@ -118,15 +123,16 @@ export function createScene(canvas, stations) {
   curve.arcLengthDivisions = 1000;
 
   // ---------------- Road + center dashes ----------------
-  const road = buildRibbon(curve, 4.2, PAL.path, asphaltTexture());
+  const rbSamples = isMobile ? 240 : 500;
+  const road = buildRibbon(curve, 4.2, PAL.path, asphaltTexture(), rbSamples);
   road.position.y = 0.012;
   scene.add(road);
   for (const off of [-1.5, 1.5]) {
-    const edge = buildRibbon(curve, 0.14, PAL.pathEdge);
+    const edge = buildRibbon(curve, 0.14, PAL.pathEdge, null, rbSamples);
     edge.position.set(off, 0.025, 0);
     scene.add(edge);
   }
-  for (let i = 0; i <= 84; i++) {
+  for (let i = 0; i <= rb(84); i++) {
     const t = (i / 84) * 0.96 + 0.02;
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -141,7 +147,7 @@ export function createScene(canvas, stations) {
 
   // ---------------- Glow progress line ----------------
   const glowTube = new THREE.Mesh(
-    new THREE.TubeGeometry(curve, 400, 0.05, 8, false),
+    new THREE.TubeGeometry(curve, isMobile ? 200 : 400, 0.05, 8, false),
     new THREE.MeshBasicMaterial({
       color: PAL.amber, transparent: true, opacity: 0.9,
       blending: THREE.AdditiveBlending, depthWrite: false,
@@ -184,7 +190,7 @@ export function createScene(canvas, stations) {
   });
 
   // ---------------- City skyline both sides ----------------
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < rb(40); i++) {
     const z = i * 13 + Math.random() * 7;
     const h = 7 + Math.random() * 27;
     const w = 4 + Math.random() * 3.5;
@@ -194,7 +200,7 @@ export function createScene(canvas, stations) {
   }
 
   // ---------------- Mountain ridge ----------------
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < rb(14); i++) {
     const z = 30 + Math.random() * 450;
     const side = Math.random() > 0.5 ? 1 : -1;
     const h = 28 + Math.random() * 55;
@@ -218,7 +224,7 @@ export function createScene(canvas, stations) {
 
   // ---------------- Lamp posts + warm glow ----------------
   const lamps = [];
-  for (let i = 0; i <= 14; i++) {
+  for (let i = 0; i <= rb(14); i++) {
     const t = (i / 14) * 0.96 + 0.02;
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -232,7 +238,7 @@ export function createScene(canvas, stations) {
   }
 
   // ---------------- Benches (opposite the lamps) ----------------
-  for (let i = 0; i <= 13; i++) {
+  for (let i = 0; i <= rb(13); i++) {
     const t = (i / 13) * 0.96 + 0.02 + 0.035;
     if (t > 0.98) continue;
     const p = curve.getPointAt(t);
@@ -244,7 +250,7 @@ export function createScene(canvas, stations) {
   }
 
   // ---------------- Dunes & rocks ----------------
-  for (let i = 0; i < 34; i++) {
+  for (let i = 0; i < rb(34); i++) {
     const t = Math.random();
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -257,7 +263,7 @@ export function createScene(canvas, stations) {
 
   // ---------------- Palms & bushes ----------------
   const palms = [];
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < rb(26); i++) {
     const t = Math.random();
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -268,7 +274,7 @@ export function createScene(canvas, stations) {
     palms.push({ g: palm, phase: Math.random() * Math.PI * 2 });
     scene.add(palm);
   }
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < rb(40); i++) {
     const t = Math.random();
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -280,7 +286,7 @@ export function createScene(canvas, stations) {
 
   // ---------------- Clouds (drifting) ----------------
   const clouds = [];
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < rb(9); i++) {
     const cld = buildCloud(
       new THREE.Vector3((Math.random() - 0.5) * 130, 30 + Math.random() * 20, Math.random() * 440),
       1.4 + Math.random() * 2.6
@@ -307,12 +313,12 @@ export function createScene(canvas, stations) {
   });
 
   // ---------------- Dust ----------------
-  const dust = buildDust();
+  const dust = buildDust(isMobile ? 180 : 420);
   scene.add(dust);
 
   // ---------------- Fireflies ----------------
   const fireflies = [];
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < rb(40); i++) {
     const t = Math.random();
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -331,7 +337,7 @@ export function createScene(canvas, stations) {
 
   // ---------------- Birds ----------------
   const birds = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < rb(5); i++) {
     const bird = buildBird();
     bird.g.position.set(-60 + Math.random() * 120, 9 + Math.random() * 8, 40 + Math.random() * 120);
     birds.push({
@@ -344,7 +350,7 @@ export function createScene(canvas, stations) {
 
   // ---------------- Cars (drifting along the road) ----------------
   const cars = [];
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < rb(7); i++) {
     const car = buildCar();
     cars.push({ g: car.group, cone: car.cone, t: i / 7, speed: 0.02 + Math.random() * 0.014, phase: Math.random() * Math.PI * 2 });
     scene.add(car.group);
@@ -426,7 +432,9 @@ export function createScene(canvas, stations) {
       const lerpRate = hovered ? 0.12 : 0.08;
       pl.group.scale.setScalar(THREE.MathUtils.lerp(pl.group.scale.x, targetScale, lerpRate));
       pl.frontMat.emissiveIntensity = THREE.MathUtils.lerp(pl.frontMat.emissiveIntensity, targetEmissive, lerpRate);
-      pl.light.intensity = THREE.MathUtils.lerp(pl.light.intensity, targetLight, lerpRate);
+      if (pl.light) {
+        pl.light.intensity = THREE.MathUtils.lerp(pl.light.intensity, targetLight, lerpRate);
+      }
       pl.group.position.y = THREE.MathUtils.lerp(pl.group.position.y, isActive ? 0.22 : 0, 0.06);
       pl.beaconMat.emissiveIntensity = 1.1 + Math.sin(time * 2.4 + i) * 0.7;
 

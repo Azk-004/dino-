@@ -1,5 +1,6 @@
 import { STATIONS, CHAPITRES, COURSE } from "./data.js";
 import { renderIllustration } from "./illustrations.js";
+import { renderIllustration3D } from "./illustration3d.js";
 
 export function initCourse({ onExit, onScrollTo, onQuiz }) {
   const root = document.getElementById("ui-course");
@@ -72,12 +73,37 @@ export function initCourse({ onExit, onScrollTo, onQuiz }) {
   tocSelect.innerHTML = selectHtml.join("");
 
   // ---------------- Render illustrations ----------------
+  // Placeholder instantané : illustration canvas 2D (rapide, toujours dispo).
+  // Puis mise à niveau progressive : illustration 3D (three.js) à l'ouverture du cours.
+  const illusImgs = [];
   sectionsEl.querySelectorAll(".course-illus").forEach((img) => {
     const id = img.closest(".course-section").id.replace("course-sec-", "");
     const canvas = document.createElement("canvas");
     renderIllustration(canvas, id, 1280, 760);
     img.src = canvas.toDataURL("image/jpeg", 0.86);
+    illusImgs.push({ img, id });
   });
+
+  let upgrading = false;
+  function upgradeTo3D() {
+    if (upgrading) return;
+    upgrading = true;
+    let i = 0;
+    const step = () => {
+      if (i >= illusImgs.length) {
+        upgrading = false;
+        return;
+      }
+      const { img, id } = illusImgs[i++];
+      const st = STATIONS.find((s) => s.id === id);
+      if (st) {
+        const url = renderIllustration3D(st, i - 1);
+        if (url) img.src = url;
+      }
+      setTimeout(step, 90);
+    };
+    setTimeout(step, 80);
+  }
 
   // ---------------- Navigation ----------------
   tocEl.addEventListener("click", (e) => {
@@ -114,6 +140,7 @@ export function initCourse({ onExit, onScrollTo, onQuiz }) {
     isOpen = true;
     document.body.classList.add("mode-course");
     setTimeout(() => setActiveToc(), 80);
+    upgradeTo3D();
   }
 
   function close() {

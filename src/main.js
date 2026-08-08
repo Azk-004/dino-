@@ -31,11 +31,9 @@ function setMode(mode) {
   if (isCourse) {
     lenis.stop();
     courseLenis?.start();
-    document.documentElement.style.overflow = "hidden";
   } else {
     courseLenis?.stop();
     lenis.start();
-    document.documentElement.style.overflow = "";
   }
 }
 
@@ -167,10 +165,8 @@ window.addEventListener("keydown", (e) => {
 ui.setReaderListener((open) => {
   if (open) {
     lenis.stop();
-    document.documentElement.style.overflow = "hidden";
   } else {
     lenis.start();
-    document.documentElement.style.overflow = "";
   }
 });
 

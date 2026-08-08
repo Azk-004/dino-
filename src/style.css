@@ -112,6 +112,12 @@ body::after {
   box-shadow: 0 0 8px rgba(232,163,92,0.8);
 }
 
+/* Taps propres sur mobile (aucun impact sur le layout desktop) */
+.mode-btn, .dot, .card-open, .quiz-opt, .result-btn, .reader-nav-btn, .reader-close,
+.reader-quiz-btn, .course-close, .course-cta, .toc-item, #course-toc-select {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ---------- Dots ---------- */
 #ui-dots {
   position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
@@ -713,10 +719,11 @@ body.mode-course #scene { visibility: hidden; }
 .course-cta:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(232,163,92,0.4); }
 
 @media (max-width: 900px) {
-  body.mode-course #ui-course { grid-template-columns: 1fr; }
+  body.mode-course #ui-course { grid-template-columns: minmax(0, 1fr); }
   .course-toc { display: none; }
   #course-toc-select { display: block; }
-  .course-main { grid-column: 1; }
+  .course-main { grid-column: 1; min-width: 0; overscroll-behavior: contain; }
+  .course-illus { max-width: 100%; }
   #course-sections { padding: 0 20px; }
   .course-cover { padding: 44px 20px 30px; }
   .course-header { padding: 14px 16px; gap: 12px; }
@@ -735,73 +742,107 @@ body.mode-course #scene { visibility: hidden; }
   #ui-hint { right: 28px; }
 }
 
-/* Tablette portrait / mobile large */
+/* Tablette portrait / mobile */
 @media (max-width: 760px) {
-  #ui-topbar { padding: 14px 16px; gap: 10px; }
-  #ui-brand-text { display: none; }
-  #ui-brand { gap: 8px; }
+  /* Perf : l'animation plein écran du grain et les backdrop-filters sont coûteux sur mobile */
+  body::after { animation: none; }
+  #ui-topbar, #ui-modes, #ui-dots, #ui-card, #ui-quiz, #ui-click-hint, #ui-toast, #ui-chapter {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* Topbar sur 2 lignes aérées : marque + contrôle de mode pleine largeur */
+  #ui-topbar {
+    flex-wrap: wrap;
+    gap: 10px 12px;
+    padding: 10px 16px;
+    background: linear-gradient(180deg, rgba(20,14,10,0.82), rgba(20,14,10,0.45) 70%, transparent);
+  }
+  #ui-brand { flex: 1; gap: 10px; }
+  #ui-brand-text { display: block; font-size: 11px; letter-spacing: 0.18em; }
   #ui-chapter { display: none; }
-  #ui-modes { margin-left: auto; gap: 2px; padding: 3px; }
-  .mode-btn { padding: 7px 12px; font-size: 10px; }
   #ui-progress { display: none; }
-  #ui-hint { right: 16px; bottom: 84px; }
-  #ui-click-hint { display: none; }
+  #ui-modes {
+    order: 5; width: 100%; margin-left: 0;
+    gap: 6px; padding: 5px;
+  }
+  .mode-btn {
+    flex: 1; min-height: 44px;
+    padding: 10px 16px; font-size: 12px; letter-spacing: 0.12em;
+  }
+  #ui-hint, #ui-click-hint { display: none; }
   #ui-dots { bottom: 74px; max-width: calc(100vw - 32px); overflow-x: auto; }
+  /* Tant que l'écran titre est affiché : ni carte de station ni points de navigation par-dessus */
+  #ui:has(#ui-title:not(.hide)) #ui-card { opacity: 0; pointer-events: none; }
+  #ui:has(#ui-title:not(.hide)) #ui-dots { opacity: 0; pointer-events: none; }
+  /* Une fois en route, les points de navigation passent au-dessus de la carte pour ne plus la chevaucher */
+  #ui:has(#ui-card.show) #ui-dots {
+    bottom: calc(20px + 42vh + 16px);
+    bottom: calc(20px + 42dvh + 16px);
+  }
   #ui-card {
     top: auto; bottom: 20px; transform: none;
-    width: calc(100vw - 24px); max-height: 46vh;
-    padding: 22px 22px 26px;
+    width: calc(100vw - 24px); max-height: 42vh; max-height: 42dvh;
+    padding: 26px 24px 30px;
     clip-path: polygon(0 0, 100% 0, 100% 0, calc(100% - 0px) 0, 100% 100%, 0 100%);
     left: 12px;
     opacity: 0; transform: translateY(60px);
   }
   #ui-card.show { opacity: 1; transform: translateY(0); }
-  #ui-card .card-body { overflow-y: auto; max-height: 22vh; }
-  .card-title { font-size: 20px; }
-  .card-body p { font-size: 13.5px; }
-  #ui-title { gap: 16px; padding: 24px; }
-  .title-main { font-size: clamp(36px, 11vw, 54px); }
+  #ui-card .card-body {
+    overflow-y: auto; max-height: 22vh; max-height: 22dvh;
+    overscroll-behavior: contain;
+  }
+  .card-title { font-size: 23px; }
+  .card-body p { font-size: 14.5px; }
+  #ui-title { gap: 18px; padding: 28px; }
+  .title-main { font-size: clamp(40px, 11vw, 58px); }
   .title-sub { letter-spacing: 0.3em; }
-  .title-desc { font-size: 14px; }
-  .meta-chip { padding: 7px 14px; font-size: 10px; }
-  #ui-quiz { padding: 92px clamp(16px, 5vw, 24px) 60px; }
-  .quiz-card { padding: 22px 20px; }
-  .quiz-q { font-size: 15.5px; }
-  .quiz-opt { padding: 13px 14px; font-size: 13.5px; }
-  .quiz-explain { font-size: 13px; }
-  #quiz-result { padding: 32px 20px; }
-  #ui-reader { padding: 12px; align-items: flex-end; }
+  .title-desc { font-size: 14.5px; }
+  .meta-chip { padding: 8px 16px; font-size: 10.5px; }
+  #ui-quiz { padding: 118px clamp(16px, 5vw, 24px) 60px; overscroll-behavior: contain; }
+  .quiz-card { padding: 24px 22px; }
+  .quiz-q { font-size: 16px; }
+  .quiz-opt { padding: 14px 16px; font-size: 14px; min-height: 48px; }
+  .quiz-explain { font-size: 13.5px; }
+  #quiz-result { padding: 34px 22px; }
+  #ui-reader { padding: 0; align-items: flex-end; }
   .reader-panel {
-    width: 100%; max-height: 92vh;
-    padding: 32px 22px 24px;
-    border-radius: 18px 18px 0 0;
+    width: 100%; max-height: 92vh; max-height: 92dvh;
+    padding: 36px 24px 28px;
+    border-radius: 20px 20px 0 0;
+    border: none; border-top: 1px solid rgba(232,163,92,0.3);
+    overscroll-behavior: contain;
   }
   .reader-nav { flex-wrap: wrap; gap: 12px; }
   .reader-count { order: 0; width: 100%; text-align: center; }
-  #ui-toast { bottom: 90px; }
+  #ui-toast { bottom: 96px; }
 }
 
 /* Petits téléphones */
 @media (max-width: 480px) {
   .brand-mark { width: 12px; height: 12px; }
-  .mode-btn { padding: 7px 10px; font-size: 9.5px; letter-spacing: 0.1em; }
-  .title-kicker { font-size: 10px; letter-spacing: 0.4em; }
-  .title-main { font-size: clamp(32px, 12vw, 44px); }
-  .title-sub { font-size: clamp(13px, 3.6vw, 16px); letter-spacing: 0.24em; }
-  .title-desc { font-size: 13px; }
-  .title-scroll { margin-top: 14px; }
-  .card-open { padding: 12px 18px; font-size: 11px; }
-  #ui-dots { gap: 8px; padding: 9px 12px; }
-  #quiz-title, .quiz-title { font-size: clamp(24px, 8vw, 32px); }
+  #ui-brand-text { font-size: 10px; letter-spacing: 0.16em; }
+  .mode-btn { min-height: 42px; padding: 9px 12px; font-size: 11px; letter-spacing: 0.1em; }
+  .title-kicker { font-size: 10.5px; letter-spacing: 0.38em; }
+  .title-main { font-size: clamp(36px, 13vw, 48px); }
+  .title-sub { font-size: clamp(13px, 3.8vw, 17px); letter-spacing: 0.24em; }
+  .title-desc { font-size: 13.5px; }
+  .title-scroll { margin-top: 16px; }
+  .card-open { padding: 14px 18px; font-size: 12px; }
+  #ui-dots { gap: 9px; padding: 10px 14px; }
+  .quiz-title { font-size: clamp(24px, 8vw, 32px); }
   .quiz-score strong { font-size: 16px; }
   #course-sections { padding: 0 14px; }
   .course-cover { padding: 36px 14px 24px; }
   .course-cover-title { font-size: clamp(30px, 9vw, 42px); }
   .course-cover-meta { flex-wrap: wrap; }
   .course-header { padding: 12px; gap: 8px; }
-  #course-toc-select { max-width: 56vw; font-size: 11px; padding: 8px 10px; }
-  .course-close { font-size: 10px; padding: 8px 10px; }
-  .course-sec-meta { gap: 8px; }
+  .course-header-brand { flex-shrink: 0; }
+  #course-toc-select { flex: 1 1 auto; min-width: 0; max-width: none; font-size: 11px; padding: 8px 10px; }
+  .course-close { font-size: 10px; padding: 8px 10px; flex-shrink: 0; }
+  .course-sec-meta { gap: 8px; flex-wrap: wrap; }
+  .course-sec-chapter { flex: 1 1 auto; }
   .course-sec-chapter { font-size: 9.5px; letter-spacing: 0.2em; }
   .reader-title { font-size: 24px; }
   .reader-body p { font-size: 14.5px; }
@@ -814,7 +855,42 @@ body.mode-course #scene { visibility: hidden; }
   .title-arrow { height: 24px; }
   #ui-card { padding: 18px 20px; }
   #ui-dots { bottom: 16px; }
-  #ui-hint { bottom: 16px; }
+}
+
+/* Très petits écrans en hauteur (iPhone SE / petits Android) : intro compacte */
+@media (max-width: 760px) and (max-height: 640px) {
+  #ui-title { gap: 12px; padding: 14px 18px; }
+  .title-desc { display: none; }
+  .title-scroll { margin-top: 10px; gap: 10px; }
+  .title-arrow { height: 26px; }
+  .meta-chip { padding: 6px 14px; font-size: 10px; }
+}
+
+/* Mobile paysage (vrais téléphones, pas les laptops tactiles) : topbar sur une ligne, intro compacte, carte recentrée */
+@media (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  #ui-topbar { flex-wrap: nowrap; gap: 10px; padding: 10px 16px; }
+  #ui-brand-text { display: none; }
+  #ui-modes { order: 0; width: auto; margin-left: auto; gap: 3px; padding: 3px; }
+  .mode-btn { min-height: 34px; padding: 6px 12px; font-size: 10.5px; letter-spacing: 0.08em; }
+  #ui-dots { display: none; }
+  #ui:has(#ui-title:not(.hide)) #ui-card { opacity: 0; pointer-events: none; }
+  #ui-title { justify-content: center; gap: 8px; padding: 80px 24px 14px; }
+  .title-desc, .title-meta { display: none; }
+  .title-main { font-size: clamp(28px, 5vw, 40px); }
+  .title-sub { font-size: 13px; letter-spacing: 0.3em; }
+  .title-scroll { margin-top: 6px; gap: 8px; }
+  .title-arrow { height: 22px; }
+  #ui-card {
+    top: auto; left: 12px; right: auto; bottom: 16px;
+    transform: none;
+    width: min(calc(100vw - 24px), 460px);
+    max-height: 74vh;
+    padding: 18px 22px 20px;
+  }
+  #ui-card.show { transform: translateY(0); }
+  #ui-card .card-body { max-height: 36vh; }
+  #ui-toast { bottom: 66px; }
+  #ui-quiz { padding-top: 84px; }
 }
 
 /* Safe areas iOS (encoches / barres de gestes) */
@@ -825,8 +901,12 @@ body.mode-course #scene { visibility: hidden; }
     #ui-dots { bottom: calc(74px + env(safe-area-inset-bottom)); }
     #ui-card { bottom: calc(20px + env(safe-area-inset-bottom)); }
     #ui-toast { bottom: calc(90px + env(safe-area-inset-bottom)); }
+    #ui-quiz { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
     .reader-panel { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
     .course-main { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  }
+  @media (max-height: 500px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+    #ui-card { bottom: calc(16px + env(safe-area-inset-bottom)); }
   }
   .course-header { padding-top: calc(18px + env(safe-area-inset-top)); }
 }

@@ -6,8 +6,8 @@
     <meta name="description" content="Formation sur la panneautique — Domaine public. Module 1 : parcours interactif en 3D." />
     <title>Panneautique — Parcours interactif</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23241a11'/%3E%3Crect x='18' y='24' width='64' height='48' rx='4' fill='none' stroke='%23e8a35c' stroke-width='4'/%3E%3Crect x='44' y='72' width='12' height='14' fill='%23c1683f'/%3E%3C/svg%3E" />
-    <script type="module" crossorigin src="/assets/index-CPb1Yh-H.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-5HF4wZmF.css">
+    <script type="module" crossorigin src="/assets/index-nXrLWvRM.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BOHEtxOB.css">
   </head>
   <body>
     <div id="app"></div>
@@ -59,11 +59,11 @@
         <div class="card-kicker"></div>
         <h2 class="card-title"></h2>
         <div class="card-rule"></div>
-        <div class="card-body"></div>
+        <div class="card-body" data-lenis-prevent></div>
         <button id="card-open" class="card-open">Lire la leçon →</button>
       </div>
 
-      <div id="ui-quiz">
+      <div id="ui-quiz" data-lenis-prevent>
         <div class="quiz-head">
           <div class="quiz-kicker">Questionnaire — Module 1</div>
           <h2 class="quiz-title">Douze questions pour valider la formation</h2>
@@ -87,7 +87,7 @@
     </div>
 
     <div id="ui-reader">
-      <div class="reader-panel">
+      <div class="reader-panel" data-lenis-prevent>
         <button id="reader-close" class="reader-close" aria-label="Fermer">×</button>
         <div class="reader-kicker"></div>
         <h2 class="reader-title"></h2>
@@ -112,8 +112,8 @@
         <select id="course-toc-select" aria-label="Sommaire"></select>
         <button id="course-close" class="course-close">← Retour au parcours 3D</button>
       </header>
-      <aside class="course-toc" id="course-toc"></aside>
-      <main class="course-main">
+      <aside class="course-toc" id="course-toc" data-lenis-prevent></aside>
+      <main class="course-main" data-lenis-prevent>
         <header class="course-cover" id="course-cover"></header>
         <div id="course-sections"></div>
         <footer class="course-foot">

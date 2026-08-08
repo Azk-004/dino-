@@ -1,5 +1,13 @@
 import * as THREE from "three";
 
+let LOW = false;
+export function setLowPower(v) {
+  LOW = v;
+}
+export function isLowPower() {
+  return LOW;
+}
+
 export const PAL = {
   skyTop: 0x1d1410,
   skyMid: 0x4a3220,
@@ -73,8 +81,8 @@ export function groundTexture() {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(90, 90);
-  tex.anisotropy = 8;
+  tex.repeat.set(LOW ? 48 : 90, LOW ? 48 : 90);
+  tex.anisotropy = LOW ? 2 : 8;
   return tex;
 }
 
@@ -103,12 +111,11 @@ export function asphaltTexture() {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(1, 60);
-  tex.anisotropy = 8;
+  tex.anisotropy = LOW ? 2 : 8;
   return tex;
 }
 
-export function buildRibbon(curve, width, color, tex) {
-  const samples = 500;
+export function buildRibbon(curve, width, color, tex, samples = 500) {
   const pts = curve.getSpacedPoints(samples);
   const positions = new Float32Array((samples + 1) * 6);
   const uvs = new Float32Array((samples + 1) * 4);
@@ -193,19 +200,21 @@ export function buildPanel(st, curve, t, side, index) {
     group.add(base);
   }
 
+  const cw = LOW ? 640 : 1024;
+  const ch = LOW ? 480 : 768;
   const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 768;
-  drawPanelCanvas(canvas.getContext("2d"), st, index);
+  canvas.width = cw;
+  canvas.height = ch;
+  drawPanelCanvas(canvas.getContext("2d"), st, index, cw, ch);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
+  tex.anisotropy = LOW ? 2 : 8;
 
   const frontMat = new THREE.MeshStandardMaterial({
     map: tex,
     emissiveMap: tex,
     emissive: PAL.ivory,
-    emissiveIntensity: 0.24,
+    emissiveIntensity: LOW ? 0.5 : 0.24,
     roughness: 0.82,
     metalness: 0.02,
   });
@@ -221,9 +230,13 @@ export function buildPanel(st, curve, t, side, index) {
   back.rotation.y = Math.PI;
   group.add(back);
 
-  const light = new THREE.PointLight(0xe8a35c, 0, 26, 2);
-  light.position.set(0, 3.3, 2.4);
-  group.add(light);
+  const light = LOW
+    ? null
+    : new THREE.PointLight(0xe8a35c, 0, 26, 2);
+  if (light) {
+    light.position.set(0, 3.3, 2.4);
+    group.add(light);
+  }
 
   const beaconMat = new THREE.MeshStandardMaterial({
     color: PAL.amber,
@@ -237,8 +250,9 @@ export function buildPanel(st, curve, t, side, index) {
   return { group, frontMat, light, beaconMat, front };
 }
 
-function drawPanelCanvas(ctx, st, index) {
-  const w = 1024, h = 768;
+function drawPanelCanvas(ctx, st, index, cw = 1024, ch = 768) {
+  const w = cw, h = ch;
+  ctx.scale(cw / 1024, ch / 768);
   const grad = ctx.createLinearGradient(0, 0, 0, h);
   grad.addColorStop(0, "#2a1f14");
   grad.addColorStop(1, "#160f09");
@@ -353,6 +367,7 @@ export function buildBuilding(w, h, d, z, lateral) {
   tex.repeat.set(1, Math.max(1, Math.round(h / 6)));
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = LOW ? 1 : 4;
 
   const mat = new THREE.MeshStandardMaterial({
     map: tex,
@@ -406,9 +421,9 @@ export function buildRock(pos, size) {
   return m;
 }
 
-export function buildDust() {
-  const count = 420;
-  const positions = new Float32Array(count * 3);
+export function buildDust(count = 420) {
+  const N = count;
+  const positions = new Float32Array(N * 3);
   const line = new THREE.CatmullRomCurve3(
     [
       new THREE.Vector3(0, 0, 0),
@@ -420,7 +435,7 @@ export function buildDust() {
     false,
     "centripetal"
   );
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < N; i++) {
     const t = Math.random();
     const p = line.getPointAt(t);
     positions[i * 3] = p.x + (Math.random() - 0.5) * 24;
@@ -533,10 +548,13 @@ export function buildSign(pos, angle, lines) {
   brace.rotation.z = Math.PI / 2;
   g.add(brace);
 
+  const sw = LOW ? 256 : 512;
+  const sh = LOW ? 160 : 320;
   const c = document.createElement("canvas");
-  c.width = 512;
-  c.height = 320;
+  c.width = sw;
+  c.height = sh;
   const ctx = c.getContext("2d");
+  ctx.scale(sw / 512, sh / 320);
   ctx.fillStyle = "#241a12";
   ctx.fillRect(0, 0, 512, 320);
   ctx.strokeStyle = "rgba(232,163,92,0.65)";
@@ -553,7 +571,7 @@ export function buildSign(pos, angle, lines) {
   lines.forEach((ln, i) => ctx.fillText(ln, 256, 122 + i * 50));
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
+  tex.anisotropy = LOW ? 2 : 8;
   const plateMat = new THREE.MeshStandardMaterial({
     map: tex,
     emissiveMap: tex,
