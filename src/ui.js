@@ -184,6 +184,27 @@ export function initUI() {
     }
   }
 
+  // ---------------- Taille du texte (accessibilité) ----------------
+  const tsizeBtns = document.querySelectorAll(".tsize-btn");
+  function applyTsize(level) {
+    const root = document.documentElement;
+    root.classList.toggle("ts-sm", level === 0);
+    root.classList.toggle("ts-lg", level === 2);
+    tsizeBtns.forEach((b) => {
+      const active = Number(b.dataset.tsize) === level;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-pressed", String(active));
+    });
+    try { localStorage.setItem("panneau-tsize", String(level)); } catch (e) { /* stockage indisponible */ }
+  }
+  let savedTsize = 1;
+  try {
+    const v = Number(localStorage.getItem("panneau-tsize"));
+    if (v >= 0 && v <= 2) savedTsize = v;
+  } catch (e) { /* ignore */ }
+  applyTsize(savedTsize);
+  tsizeBtns.forEach((b) => b.addEventListener("click", () => applyTsize(Number(b.dataset.tsize))));
+
   return {
     updateGlobal, el, openReader, closeReader, readerNav,
     showToast, isReaderOpen: () => state.readerOpen,

@@ -1,8 +1,11 @@
 import * as THREE from "three";
 import {
-  PAL, radialTexture, groundTexture, asphaltTexture, buildRibbon, buildPanel, buildBuilding,
+  PAL, radialTexture, groundTexture, asphaltTexture, sidewalkTexture, buildRibbon, buildPanel, buildBuilding,
   buildLamp, buildLampGlow, buildDune, buildRock, buildDust, buildBird,
   buildPalm, buildBush, buildCloud, buildSign, buildMountain, buildBench, buildCar,
+  buildTree, buildFlowers, buildBin, buildPigeon, buildContactShadow,
+  buildMorrisColumn, buildBusShelter, buildCafeTable, buildBicycle, buildRoadSign, buildHedge,
+  buildPerson, buildFountain, buildBillboard, buildKiosk, buildLeaf,
   setLowPower, isLowPower,
 } from "./world.js";
 
@@ -15,7 +18,7 @@ export function createScene(canvas, stations) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
+  renderer.toneMappingExposure = 1.25;
   renderer.shadowMap.enabled = !isMobile;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -55,41 +58,28 @@ export function createScene(canvas, stations) {
         float sun = pow(max(dot(dir, sunDir), 0.0), 42.0) * 1.5;
         float halo = pow(max(dot(dir, sunDir), 0.0), 7.0) * 0.4;
         col += sunColor * sun + sunColor * halo;
+        // Plein jour : plus d'étoiles dans le ciel clair
         float starMask = smoothstep(0.16, 0.32, h);
         float s = step(0.9991, hash(dir));
-        col += vec3(1.0) * s * starMask * 0.8;
+        col += vec3(1.0) * s * starMask * 0.0;
         gl_FragColor = vec4(col, 1.0);
       }
     `,
   });
   scene.add(new THREE.Mesh(new THREE.SphereGeometry(700, isMobile ? 24 : 40, isMobile ? 12 : 20), skyMat));
 
-  // ---------------- Sun (fixed ahead of camera) ----------------
+  // ---------------- Sun (décentré haut-droite : jamais derrière un panneau, aucun éblouissement à la lecture) ----------------
   const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: radialTexture(0.0, "rgba(240,180,110,0.9)"),
+    map: radialTexture(0.0, "rgba(244,200,150,0.5)"),
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
   }));
-  sunSprite.position.set(0, 34, -560);
-  sunSprite.scale.setScalar(64);
+  sunSprite.position.set(42, 56, -560);
+  sunSprite.scale.setScalar(42);
   camera.add(sunSprite);
-
-  const haloSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: radialTexture(0.22, "rgba(230,160,90,0.35)"),
-    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
-  }));
-  haloSprite.position.set(0, 34, -560);
-  haloSprite.scale.setScalar(220);
-  camera.add(haloSprite);
+  // Plus de grand halo derrière le centre de l'écran : il éblouissait les panneaux en cours de lecture
   scene.add(camera);
 
-  // ---------------- Moon ----------------
-  const moonSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: radialTexture(0.0, "rgba(255,240,205,0.85)"),
-    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.5,
-  }));
-  moonSprite.position.set(250, 95, -520);
-  moonSprite.scale.setScalar(26);
-  scene.add(moonSprite);
+  // ---------------- Moon (désactivée en plein jour) ----------------
 
   // ---------------- Ground ----------------
   const ground = new THREE.Mesh(
@@ -145,12 +135,49 @@ export function createScene(canvas, stations) {
     scene.add(dash);
   }
 
+  // ---------------- Sidewalks (dalles claires le long de la route) ----------------
+  const sideCurves = [3.55, -3.55].map((off) => {
+    const pts = [];
+    const n = isMobile ? 60 : 120;
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const p = curve.getPointAt(t);
+      const tg = curve.getTangentAt(t);
+      const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+      pts.push(new THREE.Vector3(p.x + perp.x * off, 0, p.z + perp.z * off));
+    }
+    return new THREE.CatmullRomCurve3(pts, false, "centripetal", 0.6);
+  });
+  const curbCurves = [2.42, -2.42].map((off) => {
+    const pts = [];
+    const n = isMobile ? 60 : 120;
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const p = curve.getPointAt(t);
+      const tg = curve.getTangentAt(t);
+      const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+      pts.push(new THREE.Vector3(p.x + perp.x * off, 0, p.z + perp.z * off));
+    }
+    return new THREE.CatmullRomCurve3(pts, false, "centripetal", 0.6);
+  });
+  const sideTex = sidewalkTexture();
+  for (const sc of sideCurves) {
+    const walk = buildRibbon(sc, 2.2, 0xd3c096, sideTex, rbSamples);
+    walk.position.y = 0.015;
+    scene.add(walk);
+  }
+  for (const cc of curbCurves) {
+    const curb = buildRibbon(cc, 0.24, 0xb8a475, null, rbSamples);
+    curb.position.y = 0.035;
+    scene.add(curb);
+  }
+
   // ---------------- Glow progress line ----------------
   const glowTube = new THREE.Mesh(
     new THREE.TubeGeometry(curve, isMobile ? 200 : 400, 0.05, 8, false),
     new THREE.MeshBasicMaterial({
-      color: PAL.amber, transparent: true, opacity: 0.9,
-      blending: THREE.AdditiveBlending, depthWrite: false,
+      color: 0xc69a66, transparent: true, opacity: 0.7,
+      blending: THREE.NormalBlending, depthWrite: false,
     })
   );
   glowTube.position.y = 0.055;
@@ -158,12 +185,9 @@ export function createScene(canvas, stations) {
   const glowIndexCount = glowTube.geometry.index.count;
 
   // ---------------- Lights ----------------
-  scene.add(new THREE.AmbientLight(0x40301f, 0.6));
-  scene.add(new THREE.HemisphereLight(0x5d4a72, 0x3a2a18, 0.4));
-  const moonLight = new THREE.DirectionalLight(0x9fb0d8, 0.4);
-  moonLight.position.set(250, 95, -520);
-  scene.add(moonLight);
-  const sunLight = new THREE.DirectionalLight(0xe8b980, 2.2);
+  scene.add(new THREE.AmbientLight(0xb3a280, 0.75));
+  scene.add(new THREE.HemisphereLight(0xf2e6cc, 0xb8a67e, 0.5));
+  const sunLight = new THREE.DirectionalLight(0xffedc8, 2.2);
   sunLight.position.set(-40, 60, -120);
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(2048, 2048);
@@ -180,6 +204,25 @@ export function createScene(canvas, stations) {
   const panels = [];
   const pickables = [];
   const N = stations.length;
+
+  // ---------------- Décor animable (collecté pour la boucle update) ----------------
+  const fountains = [];
+  const cafeTables = [];
+  const kiosks = [];
+  const bushes = [];
+  const flowers = [];
+  function placeBush(pos, scale) {
+    const g = buildBush(pos, scale);
+    bushes.push({ g, phase: Math.random() * Math.PI * 2 });
+    scene.add(g);
+    return g;
+  }
+  function placeFlowers(pos, scale, seed) {
+    const g = buildFlowers(pos, scale, seed);
+    flowers.push({ g, phase: Math.random() * Math.PI * 2 });
+    scene.add(g);
+    return g;
+  }
   stations.forEach((st, i) => {
     const t = 0.02 + ((i + 0.5) / N) * 0.94;
     const side = i % 2 === 0 ? 1 : -1;
@@ -187,6 +230,16 @@ export function createScene(canvas, stations) {
     panels.push(panel);
     pickables.push({ mesh: panel.front, kind: "panel", index: i });
     scene.add(panel.group);
+    // Ombre de contact douce : ancre le panneau au sol
+    scene.add(buildContactShadow(panel.group.position, 6.4, 4.2));
+    // Fleurs et buissons de part et d'autre de certains panneaux (perpendiculaire à la face)
+    if (i % 3 === 0) {
+      const latV = new THREE.Vector3(Math.cos(panel.group.rotation.y), 0, -Math.sin(panel.group.rotation.y)).normalize();
+      const f1 = panel.group.position.clone().add(latV.clone().multiplyScalar(3.4));
+      f1.y = 0;
+      placeFlowers(f1, 0.9 + Math.random() * 0.5, i);
+      placeBush(panel.group.position.clone().add(latV.clone().multiplyScalar(-3.2)), 0.7 + Math.random() * 0.5);
+    }
   });
 
   // ---------------- City skyline both sides ----------------
@@ -247,6 +300,198 @@ export function createScene(canvas, stations) {
     const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
     const pos = p.clone().add(perp.clone().multiplyScalar(side * 5.3));
     scene.add(buildBench(pos, side));
+    // Fleurs aux pieds des bancs, poubelle de temps en temps
+    const flowerPos = p.clone().add(perp.clone().multiplyScalar(side * 4.6));
+    placeFlowers(flowerPos, 0.8 + Math.random() * 0.5, i * 3 + 1);
+    if (i % 3 === 1) {
+      const binPos = p.clone().add(perp.clone().multiplyScalar(side * 6.1));
+      scene.add(buildBin(binPos));
+    }
+  }
+
+  // ---------------- Trees (feuillus) le long du parcours ----------------
+  // Écartés de la bande des panneaux de leçon (offset ~5,4) : feuillage jamais devant le texte.
+  const trees = [];
+  const panelT = stations.map((s, i) => 0.02 + ((i + 0.5) / N) * 0.94);
+  for (let i = 0; i < rb(30); i++) {
+    let t = Math.random();
+    for (let guard = 0; guard < 8; guard++) {
+      t = Math.random();
+      // Jamais pile au niveau d'un panneau (côtés confondus, par sécurité)
+      if (!panelT.some((tp) => Math.abs(tp - t) < 0.018)) break;
+    }
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = Math.random() > 0.5 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * (8.5 + Math.random() * 7.5)));
+    const tree = buildTree(pos, 0.9 + Math.random() * 0.8);
+    trees.push({ g: tree, phase: Math.random() * Math.PI * 2 });
+    scene.add(tree);
+  }
+
+  // ---------------- Pigeons (qui picorent sur le trottoir) ----------------
+  const pigeons = [];
+  for (let i = 0; i < rb(9); i++) {
+    const t = 0.04 + Math.random() * 0.92;
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = Math.random() > 0.5 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * (3.1 + Math.random() * 1.8)));
+    const pg = buildPigeon();
+    pg.position.set(pos.x, 0, pos.z);
+    pigeons.push({ g: pg, phase: Math.random() * Math.PI * 2, x0: pos.x, z0: pos.z });
+    scene.add(pg);
+  }
+
+  // ---------------- Morris columns (publicité classique) ----------------
+  const morrisT = isMobile ? [0.14, 0.46] : [0.14, 0.46, 0.82];
+  morrisT.forEach((t, i) => {
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * 5.15));
+    const angle = Math.atan2(perp.x, perp.z) + (side > 0 ? 0 : Math.PI);
+    scene.add(buildMorrisColumn(pos, angle, i === 1 ? ["RÈGLES", "D'AFFICHAGE"] : undefined));
+    scene.add(buildContactShadow(pos, 2.0, 2.0));
+    scene.add(buildHedge(pos.clone().add(perp.clone().multiplyScalar(side * -1.6)), 2.2, 0.55));
+  });
+
+  // ---------------- Bus shelters (abribus publicitaires) ----------------
+  const shelterT = isMobile ? [0.24] : [0.24, 0.62];
+  shelterT.forEach((t, i) => {
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? -1 : 1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * 5.5));
+    scene.add(buildBusShelter(pos, side));
+    scene.add(buildContactShadow(pos, 4.6, 2.6));
+  });
+
+  // ---------------- Café tables (bistrot avec parasol) ----------------
+  const cafeT = isMobile ? [0.19, 0.85] : [0.19, 0.52, 0.85];
+  cafeT.forEach((t, i) => {
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * 6.4));
+    const rot = Math.atan2(tg.x, tg.z) + (side > 0 ? Math.PI : 0);
+    const colors = [0xc9a87c, 0x8faa7d, 0xd2a678];
+    const cafe = buildCafeTable(pos, colors[i % colors.length], rot);
+    cafeTables.push({ g: cafe, phase: Math.random() * Math.PI * 2 });
+    scene.add(cafe);
+  });
+
+  // ---------------- Bicycles (vélos stationnés près des bancs) ----------------
+  for (let i = 0; i < rb(5); i++) {
+    const t = 0.06 + Math.random() * 0.88;
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = Math.random() > 0.5 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * (5.9 + Math.random() * 1.4)));
+    scene.add(buildBicycle(pos, Math.random() * Math.PI * 2));
+  }
+
+  // ---------------- Road signs (petite signalisation urbaine) ----------------
+  const roadT = [0.32, 0.7];
+  roadT.forEach((t, i) => {
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * 2.8));
+    scene.add(buildRoadSign(pos, Math.atan2(tg.x, tg.z), i === 0 ? "D" : "A"));
+  });
+
+  // ---------------- Hedges (haies basses au bord du trottoir, hors des plinthes) ----------------
+  for (let i = 0; i < rb(8); i++) {
+    const t = 0.08 + Math.random() * 0.84;
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = Math.random() > 0.5 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * (4.55 + Math.random() * 0.4)));
+    scene.add(buildHedge(pos, 1.5 + Math.random() * 1.2, 0.5 + Math.random() * 0.3));
+  }
+
+  // ---------------- Big billboards 4x3 (grands panneaux publicitaires, très visibles) ----------------
+  const BILLBOARDS = [
+    { t: 0.09, side: -1, lines: ["RÉCLAMEZ", "VOTRE VILLE"] },
+    { t: 0.36, side: 1, lines: ["ESPACE", "PUBLICITAIRE"] },
+    { t: 0.62, side: -1, lines: ["MOBILIER", "URBAIN"] },
+    { t: 0.88, side: 1, lines: ["ZONAGE", "RÉGULÉ"] },
+  ];
+  BILLBOARDS.forEach((b) => {
+    const p = curve.getPointAt(b.t);
+    const tg = curve.getTangentAt(b.t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const pos = p.clone().add(perp.clone().multiplyScalar(b.side * 7.6));
+    // Le panneau regarde la route : le signe doit être À L'INTÉRIEUR de l'atan2
+    const angle = Math.atan2(-perp.x * b.side, -perp.z * b.side);
+    scene.add(buildBillboard(pos, angle, b.lines));
+    scene.add(buildContactShadow(pos, 6.4, 4.0));
+    // Buissons derrière le panneau (côté champ), pas du côté route où sont les panneaux de leçon
+    placeBush(pos.clone().add(perp.clone().multiplyScalar(b.side * 2.3)), 0.8);
+    placeBush(pos.clone().add(perp.clone().multiplyScalar(b.side * 2.8)), 0.7);
+  });
+
+  // ---------------- Fountain (place centrale) ----------------
+  {
+    const t = 0.33;
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const pos = p.clone().add(perp.clone().multiplyScalar(-11));
+    const fountain = buildFountain();
+    fountain.position.copy(pos);
+    fountains.push({ g: fountain, phase: 0 });
+    scene.add(fountain);
+    scene.add(buildContactShadow(pos, 4.6, 4.6));
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + 0.4;
+      const bpos = pos.clone().add(new THREE.Vector3(Math.cos(a) * 2.7, 0, Math.sin(a) * 2.7));
+      scene.add(buildBench(bpos, 1));
+      placeFlowers(bpos.clone().add(new THREE.Vector3(0.6, 0, 0)), 0.8, i);
+    }
+    scene.add(buildTree(pos.clone().add(new THREE.Vector3(-3.4, 0, 1.4)), 1.3));
+    scene.add(buildTree(pos.clone().add(new THREE.Vector3(3.2, 0, -1.2)), 1.2));
+  }
+
+  // ---------------- Kiosque de presse ----------------
+  {
+    const t = 0.585;
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const pos = p.clone().add(perp.clone().multiplyScalar(-6.2));
+    const angle = Math.atan2(perp.x, perp.z);
+    const kiosk = buildKiosk(pos, angle);
+    kiosks.push({ g: kiosk, phase: 0 });
+    scene.add(kiosk);
+    scene.add(buildContactShadow(pos, 3.0, 2.6));
+    scene.add(buildHedge(pos.clone().add(new THREE.Vector3(2.4, 0, 0)), 1.6, 0.5));
+  }
+
+  // ---------------- Passants animés (marchent le long des trottoirs) ----------------
+  const walkers = [];
+  const WALKER_COUNT = isMobile ? 7 : 14;
+  for (let i = 0; i < WALKER_COUNT; i++) {
+    const person = buildPerson();
+    const dir = Math.random() > 0.5 ? 1 : -1;
+    const side = Math.random() > 0.5 ? 1 : -1;
+    walkers.push({
+      g: person.g, legL: person.legL, legR: person.legR, arms: person.arms,
+      t: 0.02 + Math.random() * 0.96,
+      speed: (0.004 + Math.random() * 0.005) * dir,
+      side, off: 3.0 + Math.random() * 1.3, phase: person.phase,
+      step: 0,
+    });
+    scene.add(person.g);
   }
 
   // ---------------- Dunes & rocks ----------------
@@ -269,29 +514,33 @@ export function createScene(canvas, stations) {
     const tg = curve.getTangentAt(t);
     const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
     const side = Math.random() > 0.5 ? 1 : -1;
-    const pos = p.clone().add(perp.clone().multiplyScalar(side * (8 + Math.random() * 9)));
-    const palm = buildPalm(pos, 0.8 + Math.random() * 0.9);
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * (9 + Math.random() * 8)));
+    const palm = buildPalm(pos, 0.8 + Math.random() * 0.8);
     palms.push({ g: palm, phase: Math.random() * Math.PI * 2 });
     scene.add(palm);
   }
-  for (let i = 0; i < rb(40); i++) {
+  for (let i = 0; i < rb(60); i++) {
     const t = Math.random();
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
     const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
     const side = Math.random() > 0.5 ? 1 : -1;
     const pos = p.clone().add(perp.clone().multiplyScalar(side * (5.8 + Math.random() * 3.4)));
-    scene.add(buildBush(pos, 0.5 + Math.random() * 0.7));
+    placeBush(pos, 0.5 + Math.random() * 0.8);
+    if (Math.random() < 0.35) {
+      const fpos = p.clone().add(perp.clone().multiplyScalar(side * (6.2 + Math.random() * 1.6)));
+      placeFlowers(fpos, 0.7 + Math.random() * 0.5, (i * 7) % 9);
+    }
   }
 
   // ---------------- Clouds (drifting) ----------------
   const clouds = [];
-  for (let i = 0; i < rb(9); i++) {
+  for (let i = 0; i < rb(12); i++) {
     const cld = buildCloud(
       new THREE.Vector3((Math.random() - 0.5) * 130, 30 + Math.random() * 20, Math.random() * 440),
       1.4 + Math.random() * 2.6
     );
-    clouds.push({ g: cld, speed: 0.5 + Math.random() * 0.8 });
+    clouds.push({ g: cld, speed: 0.5 + Math.random() * 0.8, phase: Math.random() * Math.PI * 2, y0: cld.position.y, s0: cld.scale.x });
     scene.add(cld);
   }
 
@@ -316,28 +565,33 @@ export function createScene(canvas, stations) {
   const dust = buildDust(isMobile ? 180 : 420);
   scene.add(dust);
 
-  // ---------------- Fireflies ----------------
-  const fireflies = [];
-  for (let i = 0; i < rb(40); i++) {
-    const t = Math.random();
-    const p = curve.getPointAt(t);
-    const tg = curve.getTangentAt(t);
-    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
-    const side = Math.random() > 0.5 ? 1 : -1;
-    const pos = p.clone().add(perp.clone().multiplyScalar(side * (5.5 + Math.random() * 4)));
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: radialTexture(0.5, "rgba(240,196,120,1)"),
-      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0,
-    }));
-    sp.position.set(pos.x, 0.8 + Math.random() * 2.4, pos.z);
-    sp.scale.setScalar(0.5 + Math.random() * 0.5);
-    fireflies.push({ sp, baseY: sp.position.y, phase: Math.random() * Math.PI * 2, speed: 0.8 + Math.random() * 1.4 });
-    scene.add(sp);
+  // ---------------- Feuilles portées par le vent (animation ambiante) ----------------
+  const leaves = [];
+  for (let i = 0; i < rb(26); i++) {
+    const leaf = buildLeaf();
+    const lt = Math.random();
+    const lp = curve.getPointAt(lt);
+    const ltg = curve.getTangentAt(lt);
+    const lpe = new THREE.Vector3(-ltg.z, 0, ltg.x).normalize();
+    const ls = Math.random() > 0.5 ? 1 : -1;
+    const lx = lp.x + lpe.x * ls * (2 + Math.random() * 7);
+    const ly = 0.4 + Math.random() * 4;
+    const lz = lp.z + lpe.z * ls * (2 + Math.random() * 7);
+    leaf.position.set(lx, ly, lz);
+    leaves.push({
+      g: leaf, x: lx, y: ly, z: lz,
+      vx: (Math.random() - 0.5) * 2.2,
+      vz: -(0.8 + Math.random() * 1.4),
+      vy: -(0.3 + Math.random() * 0.4),
+      spin: (Math.random() - 0.5) * 4,
+      phase: Math.random() * Math.PI * 2,
+    });
+    scene.add(leaf);
   }
 
   // ---------------- Birds ----------------
   const birds = [];
-  for (let i = 0; i < rb(5); i++) {
+  for (let i = 0; i < rb(8); i++) {
     const bird = buildBird();
     bird.g.position.set(-60 + Math.random() * 120, 9 + Math.random() * 8, 40 + Math.random() * 120);
     birds.push({
@@ -364,7 +618,8 @@ export function createScene(canvas, stations) {
   let lastTime = performance.now() * 0.001;
   let hoverIndex = -1;
   let meteor = null;
-  let meteorTimer = 5 + Math.random() * 6;
+  // Plein jour : plus de météores
+  let meteorTimer = Infinity;
   let camPrevAngle = 0;
 
   function setHover(i) { hoverIndex = i; }
@@ -427,16 +682,15 @@ export function createScene(canvas, stations) {
       const hovered = i === hoverIndex;
       const near = Math.abs(progress - (0.02 + ((i + 0.5) / N) * 0.94)) < 0.06;
       const targetScale = isActive ? 1.0 : hovered ? 1.09 : 0.86;
-      const targetEmissive = hovered ? 1.3 : isActive ? 0.9 : 0.24;
-      const targetLight = hovered ? 3.4 : isActive ? 2.6 : near ? 0.6 : 0;
+      // En plein jour, les faces sont mates : aucune émission pour éviter le reflet
+      const targetLight = hovered ? 0.22 : isActive ? 0.15 : near ? 0.05 : 0;
       const lerpRate = hovered ? 0.12 : 0.08;
       pl.group.scale.setScalar(THREE.MathUtils.lerp(pl.group.scale.x, targetScale, lerpRate));
-      pl.frontMat.emissiveIntensity = THREE.MathUtils.lerp(pl.frontMat.emissiveIntensity, targetEmissive, lerpRate);
       if (pl.light) {
         pl.light.intensity = THREE.MathUtils.lerp(pl.light.intensity, targetLight, lerpRate);
       }
       pl.group.position.y = THREE.MathUtils.lerp(pl.group.position.y, isActive ? 0.22 : 0, 0.06);
-      pl.beaconMat.emissiveIntensity = 1.1 + Math.sin(time * 2.4 + i) * 0.7;
+      pl.beaconMat.emissiveIntensity = 0.22 + Math.sin(time * 2.4 + i) * 0.1;
 
       // Face the camera when close so panels are always "bien droit" on arrival
       const dx = camera.position.x - pl.group.position.x;
@@ -461,10 +715,44 @@ export function createScene(canvas, stations) {
       pl.g.rotation.y += 0.0003;
     }
 
+    for (const tr of trees) {
+      tr.g.rotation.z = Math.sin(time * 0.6 + tr.phase) * 0.03;
+    }
+
+    for (const pg of pigeons) {
+      const bob = Math.abs(Math.sin(time * 2.2 + pg.phase)) * 0.05;
+      pg.g.position.y = bob;
+      pg.g.rotation.z = Math.sin(time * 2.2 + pg.phase) * 0.08;
+      // petites avancées sur le trottoir
+      pg.g.position.x = pg.x0 + Math.sin(time * 0.35 + pg.phase) * 0.4;
+      pg.g.position.z = pg.z0 + Math.cos(time * 0.3 + pg.phase) * 0.3;
+    }
+
+    for (const w of walkers) {
+      w.t = (w.t + w.speed * dt) % 1;
+      if (w.t < 0) w.t += 1;
+      const wp = curve.getPointAt(w.t);
+      const wg = curve.getTangentAt(w.t);
+      const perp = new THREE.Vector3(-wg.z, 0, wg.x).normalize();
+      w.g.position.set(
+        wp.x + perp.x * w.side * w.off,
+        0,
+        wp.z + perp.z * w.side * w.off
+      );
+      w.g.rotation.y = Math.atan2(wg.x, wg.z) + (w.side > 0 ? 0 : Math.PI);
+      w.step += dt * (6 + Math.abs(w.speed) * 90);
+      const swing = Math.sin(w.step) * 0.55;
+      w.legL.rotation.x = swing;
+      w.legR.rotation.x = -swing;
+      w.arms.rotation.x = -swing * 0.6;
+      w.g.position.y = Math.abs(Math.sin(w.step)) * 0.03;
+    }
+
     for (const lb of lamps) {
+      // En plein jour les lampadaires sont éteints
       const f = 0.9 + Math.sin(time * 9 + lb.i * 1.7) * 0.09;
-      lb.glow.material.opacity = 0.72 * f;
-      lb.pool.material.opacity = 0.85 * f;
+      lb.glow.material.opacity = 0.08 * f;
+      lb.pool.material.opacity = 0.1 * f;
     }
 
     if (!meteor) {
@@ -492,22 +780,19 @@ export function createScene(canvas, stations) {
       }
     }
 
-    for (const ff of fireflies) {
-      ff.sp.position.y = ff.baseY + Math.sin(time * ff.speed + ff.phase) * 0.4;
-      ff.sp.material.opacity = 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(time * (ff.speed + 0.6) + ff.phase * 2.7));
-    }
-
     for (const b of birds) {
       b.g.position.x += b.speed * 0.02;
       b.g.position.y = b.y0 + Math.sin(time * 1.3 + b.phase) * 0.8;
+      b.g.position.z = b.z0 + Math.sin(time * 0.6 + b.phase) * 3.5;
       const flap = Math.sin(time * 9 + b.phase) * 0.7;
       b.l.rotation.z = flap;
       b.r.rotation.z = -flap;
-      b.g.rotation.z = 0.25 + Math.sin(time * 1.3 + b.phase) * 0.12;
+      b.g.rotation.z = 0.25 + Math.sin(time * 1.3 + b.phase) * 0.12 + Math.cos(time * 0.6 + b.phase) * 0.08;
       if (b.g.position.x > 80) {
         b.g.position.x = -80;
         b.y0 = 8 + Math.random() * 9;
-        b.g.position.z = 30 + Math.random() * 90;
+        b.z0 = 30 + Math.random() * 90;
+        b.g.position.z = b.z0;
         b.g.position.y = b.y0;
       }
     }
@@ -519,7 +804,65 @@ export function createScene(canvas, stations) {
 
     for (const c of clouds) {
       c.g.position.x += c.speed * 0.02;
+      c.g.position.y = c.y0 + Math.sin(time * 0.22 + c.phase) * 0.7;
+      const br = 1 + Math.sin(time * 0.3 + c.phase) * 0.05;
+      c.g.scale.set(c.s0 * br, c.s0 * br, c.s0 * br);
       if (c.g.position.x > 150) c.g.position.x = -150;
+    }
+
+    // Fontaine : jet pulsant, surface qui tourne, disque qui ondule
+    for (const f of fountains) {
+      const w = Math.sin(time * 2.6 + f.phase) * 0.5 + 1;
+      f.g.userData.jet.scale.set(1, 0.7 + 0.3 * w, 1);
+      f.g.userData.jet.rotation.z = Math.sin(time * 3.1) * 0.06;
+      f.g.userData.jet.rotation.x = Math.cos(time * 2.7) * 0.05;
+      f.g.userData.pool.rotation.z = time * 0.25;
+      const rs = 1 + Math.sin(time * 1.8 + f.phase) * 0.03;
+      f.g.userData.pool.scale.set(rs, rs, rs);
+      f.g.userData.dish.rotation.z = Math.sin(time * 1.4) * 0.03;
+    }
+
+    // Parasols des terrasses : ballant léger dans la brise
+    for (const ct of cafeTables) {
+      ct.g.userData.parasol.rotation.z = Math.sin(time * 0.9 + ct.phase) * 0.06;
+      ct.g.userData.parasol.rotation.x = Math.sin(time * 0.7 + ct.phase * 1.3) * 0.05;
+    }
+
+    // Drapeau du kiosque qui flotte au vent
+    for (const k of kiosks) {
+      const fl = k.g.userData.flag;
+      fl.rotation.z = Math.sin(time * 2.4 + k.phase) * 0.28;
+      fl.position.y = 2.42 + Math.sin(time * 2.4 + k.phase) * 0.04;
+    }
+
+    // Buissons et fleurs : balancement doux (décor uniquement, jamais sur les panneaux)
+    for (const bsh of bushes) {
+      bsh.g.rotation.z = Math.sin(time * 0.7 + bsh.phase) * 0.03;
+    }
+    for (const flw of flowers) {
+      flw.g.rotation.z = Math.sin(time * 0.9 + flw.phase) * 0.06;
+    }
+
+    // Feuilles qui tombent en tournoyant
+    for (const lf of leaves) {
+      lf.x += (Math.sin(time * 0.5 + lf.phase) * 0.6 + lf.vx) * dt;
+      lf.z += lf.vz * dt;
+      lf.y += lf.vy * dt;
+      lf.g.rotation.x += lf.spin * dt;
+      lf.g.rotation.z += lf.spin * 0.6 * dt;
+      lf.g.position.set(lf.x, lf.y, lf.z);
+      if (lf.y < 0.18) {
+        // Réapparaît près de la caméra (jamais derrière) : feuilles toujours visibles
+        const rt = Math.min(0.97, Math.max(0.02, t + (Math.random() - 0.35) * 0.12));
+        const rp = curve.getPointAt(rt);
+        const rtg = curve.getTangentAt(rt);
+        const rpe = new THREE.Vector3(-rtg.z, 0, rtg.x).normalize();
+        const rside = Math.random() > 0.5 ? 1 : -1;
+        lf.x = rp.x + rpe.x * rside * (2 + Math.random() * 7);
+        lf.z = rp.z + rpe.z * rside * (2 + Math.random() * 7);
+        lf.y = 1.5 + Math.random() * 3;
+        lf.phase = Math.random() * Math.PI * 2;
+      }
     }
   }
 

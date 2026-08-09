@@ -1,6 +1,6 @@
 import { STATIONS, CHAPITRES, COURSE } from "./data.js";
 import { renderIllustration } from "./illustrations.js";
-import { renderIllustration3D } from "./illustration3d.js";
+import { createLiveIllustration3D, renderIllustration3D } from "./illustration3d.js";
 
 export function initCourse({ onExit, onScrollTo, onQuiz }) {
   const root = document.getElementById("ui-course");
@@ -47,7 +47,7 @@ export function initCourse({ onExit, onScrollTo, onQuiz }) {
     }
     secHtml.push(`
       <section class="course-section" id="course-sec-${st.id}">
-        <img class="course-illus" alt="Illustration — ${st.title}" />
+        <canvas class="course-illus" role="img" aria-label="Illustration — ${st.title}"></canvas>
         <div class="course-sec-meta">
           <span class="course-sec-chapter">${ch ? `${ch.name} · ${ch.label}` : ""}</span>
           <span class="course-sec-num">${st.num} / ${String(STATIONS.length).padStart(2, "0")}</span>
@@ -73,37 +73,76 @@ export function initCourse({ onExit, onScrollTo, onQuiz }) {
   tocSelect.innerHTML = selectHtml.join("");
 
   // ---------------- Render illustrations ----------------
-  // Placeholder instantané : illustration canvas 2D (rapide, toujours dispo).
-  // Puis mise à niveau progressive : illustration 3D (three.js) à l'ouverture du cours.
-  const illusImgs = [];
-  sectionsEl.querySelectorAll(".course-illus").forEach((img) => {
-    const id = img.closest(".course-section").id.replace("course-sec-", "");
-    const canvas = document.createElement("canvas");
-    renderIllustration(canvas, id, 1280, 760);
-    img.src = canvas.toDataURL("image/jpeg", 0.86);
-    illusImgs.push({ img, id });
+  // 1) Peinture 2D instantanée (toujours disponible, affichée immédiatement).
+  // 2) Quand une section approche du viewport, remplacement par une illustration
+  //    3D EN DIRECT (three.js) : animée en continu, avec parallaxe liée au scroll.
+  //    La boucle est mise en pause dès que la section sort de l'écran (perf).
+  const illusItems = [];
+  sectionsEl.querySelectorAll(".course-illus").forEach((canvas) => {
+    const id = canvas.closest(".course-section").id.replace("course-sec-", "");
+    // Placeholder 2D instantané — peint sur un canvas temporaire puis affiché en
+    // arrière-plan CSS : le canvas cible reste réservé au WebGL (un canvas ne peut
+    // avoir qu'un seul type de contexte).
+    const tmp = document.createElement("canvas");
+    renderIllustration(tmp, id, 1280, 760);
+    canvas.style.backgroundImage = `url(${tmp.toDataURL("image/jpeg", 0.86)})`;
+    canvas.style.backgroundSize = "cover";
+    canvas.style.backgroundPosition = "center";
+    illusItems.push({ canvas, id, live: null, raf: 0, p: 0, running: false });
   });
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  let upgrading = false;
-  function upgradeTo3D() {
-    if (upgrading) return;
-    upgrading = true;
-    let i = 0;
-    const step = () => {
-      if (i >= illusImgs.length) {
-        upgrading = false;
-        return;
-      }
-      const { img, id } = illusImgs[i++];
-      const st = STATIONS.find((s) => s.id === id);
-      if (st) {
-        const url = renderIllustration3D(st, i - 1);
-        if (url) img.src = url;
-      }
-      setTimeout(step, 90);
-    };
-    setTimeout(step, 80);
+  function parallaxOf(el) {
+    const r = el.getBoundingClientRect();
+    const c = mainEl.getBoundingClientRect();
+    const denom = r.height + c.height || 1;
+    return Math.min(1, Math.max(0, (c.bottom - r.top) / denom));
   }
+
+  function startLoop(item) {
+    if (!item.live || item.running) return;
+    item.running = true;
+    item.p = parallaxOf(item.canvas);
+    let last = performance.now();
+    const step = (now) => {
+      if (!item.running) return;
+      const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
+      last = now;
+      item.p = parallaxOf(item.canvas);
+      item.live.render(now * 0.001, dt, item.p);
+      item.raf = requestAnimationFrame(step);
+    };
+    item.raf = requestAnimationFrame(step);
+  }
+  function stopLoop(item) {
+    if (!item.running) return;
+    item.running = false;
+    cancelAnimationFrame(item.raf);
+  }
+
+  const io = new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      const item = illusItems.find((it) => it.canvas === en.target);
+      if (!item) continue;
+      if (en.isIntersecting) {
+        if (!item.live) {
+          const st = STATIONS.find((s) => s.id === item.id);
+          if (st) {
+            if (!reducedMotion) item.live = createLiveIllustration3D(st, STATIONS.indexOf(st), item.canvas, 1280, 760);
+            if (!item.live) {
+              // Repli pro : illustration 3D statique (ou 2D si WebGL indisponible)
+              const url = renderIllustration3D(st, STATIONS.indexOf(st));
+              if (url) item.canvas.style.backgroundImage = `url(${url})`;
+            }
+          }
+        }
+        startLoop(item);
+      } else {
+        stopLoop(item);
+      }
+    }
+  }, { root: mainEl, rootMargin: "420px 0px 420px 0px", threshold: 0 });
+  illusItems.forEach((it) => io.observe(it.canvas));
 
   // ---------------- Navigation ----------------
   tocEl.addEventListener("click", (e) => {
@@ -140,12 +179,12 @@ export function initCourse({ onExit, onScrollTo, onQuiz }) {
     isOpen = true;
     document.body.classList.add("mode-course");
     setTimeout(() => setActiveToc(), 80);
-    upgradeTo3D();
   }
 
   function close() {
     isOpen = false;
     document.body.classList.remove("mode-course");
+    illusItems.forEach((it) => stopLoop(it));
   }
 
   return { open, close, isOpen: () => isOpen };

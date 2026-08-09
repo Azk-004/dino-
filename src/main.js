@@ -5,7 +5,18 @@ import { initCourse } from "./course.js";
 import { STATIONS } from "./data.js";
 import "./style.css";
 
-const canvas = document.getElementById("scene");
+async function boot() {
+  // Vraie police Century Gothic embarquée : on attend son chargement avant de dessiner
+  // les textures des panneaux 3D et des illustrations, pour qu'elles s'affichent avec
+  // la bonne police (sinon la pile de secours prend le relais).
+  await Promise.allSettled([
+    document.fonts.load("400 26px 'Century Gothic'"),
+    document.fonts.load("700 26px 'Century Gothic'"),
+    document.fonts.load("italic 400 26px 'Century Gothic'"),
+    document.fonts.load("italic 700 26px 'Century Gothic'"),
+  ]);
+
+  const canvas = document.getElementById("scene");
 const N = STATIONS.length;
 
 const scene = createScene(canvas, STATIONS);
@@ -232,11 +243,14 @@ setTimeout(() => {
   document.getElementById("ui-hint").classList.add("visible");
 }, 1200);
 
-// Clickable station dots
-document.querySelectorAll(".dot").forEach((d, i) => {
-  d.addEventListener("click", () => {
-    const ratio = (i + 1.5) / UNITS;
-    const max = Math.max(1, scrollEl.offsetHeight - window.innerHeight);
-    lenis.scrollTo(Math.round(ratio * max), { duration: 1.4 });
+  // Clickable station dots
+  document.querySelectorAll(".dot").forEach((d, i) => {
+    d.addEventListener("click", () => {
+      const ratio = (i + 1.5) / UNITS;
+      const max = Math.max(1, scrollEl.offsetHeight - window.innerHeight);
+      lenis.scrollTo(Math.round(ratio * max), { duration: 1.4 });
+    });
   });
-});
+}
+
+boot();
