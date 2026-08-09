@@ -30,7 +30,7 @@ export const STATIONS = [
       },
       {
         t: "Ce que vous allez parcourir :",
-        b: "L'importance du panneau publicitaire, le constat général du secteur, puis la réorganisation complète en sept étapes, l'évaluation du système et sa mise à jour. Un questionnaire de douze questions clôture le module.",
+        b: "De l'importance du panneau publicitaire au constat général dans le secteur, de la réorganisation complète (en sept étapes) du domaine d'activité aux techniques d'évaluation et de mise à jour de l'ensemble du processus ; le module 1 est conçu pour un embellissement durable du cadre de vie des populations, un rayonnement de l'économie grâce à l'exploitation du mobilier urbain de publicité et à la pérennité des acquis de développement dans ce corps de métier. Un questionnaire en douze points achève le module.",
       },
     ],
   },
@@ -175,7 +175,7 @@ export const STATIONS = [
         b: "Après études et validation des supports devant être pris en compte dans le cadre du réaménagement, on procède à la constitution des lots devant faire l'objet d'appels d'offres pour la mise en concession des différents espaces publicitaires.",
       },
       {
-        t: "Un équilibre garanti :",
+        t: "Garantir un équilibre :",
         b: "La constitution des lots est faite de manière à garantir l'équilibre des espaces et celui en matière de type de support des différentes régies publicitaires.",
       },
     ],
@@ -224,7 +224,7 @@ export const STATIONS = [
     chapter: 1,
     num: "10",
     kicker: "Chapitre 2 · Étape 7 · Gestion :",
-    title: "Gestion des régies publicitaires.",
+    title: "Gestion par les régies publicitaires.",
     bullets: [
       "Collectivités locales ou Gouvernement",
       "Selon les textes en vigueur dans chaque pays",
@@ -233,7 +233,7 @@ export const STATIONS = [
     content: [
       {
         t: "Étape 7 :",
-        b: "La gestion des régies publicitaires est faite, dans certains pays, par les collectivités locales. Dans d'autres, elle est du ressort du Gouvernement par l'intermédiaire du Ministère de la Communication, etc.",
+        b: "La gestion par les régies publicitaires est encadrée, dans certains pays, par les collectivités locales. Dans d'autres, elle est du ressort du Gouvernement par l'intermédiaire du Ministère de la Communication, etc.",
       },
       {
         t: "L'essentiel :",
@@ -255,7 +255,7 @@ export const STATIONS = [
     content: [
       {
         t: "Chapitre 3 :",
-        b: "Pour garantir un développement harmonieux du secteur d'exploitation des panneaux publicitaires / Mobilier Urbain de Publicité, il faut prévoir, dans les réformes, un mécanisme d'évaluation de l'ensemble du processus, depuis l'audit jusqu'à la gestion des régies publicitaires.",
+        b: "Pour garantir un développement harmonieux du secteur d'exploitation des panneaux publicitaires / Mobilier Urbain de Publicité, il faut prévoir, dans les réformes, un mécanisme d'évaluation de l'ensemble du processus, depuis l'audit jusqu'à la gestion par les régies publicitaires.",
       },
       {
         t: "Un pilotage autonome :",
@@ -375,7 +375,7 @@ export const QUIZ = [
     ],
     correct: 2,
     explain:
-      "La réorganisation suit sept étapes : audit, état des lieux, zonage, constitution des lots, mise en concession, attribution des espaces et gestion des régies.",
+      "La réorganisation suit sept étapes : audit, état des lieux, zonage, constitution des lots, mise en concession, attribution des espaces et gestion par les régies.",
   },
   {
     q: "En quoi consiste le réaménagement de l'espace publicitaire d'une ville ?",

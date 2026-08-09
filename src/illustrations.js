@@ -750,7 +750,7 @@ function drawGestion(ctx, w, h) {
   ctx.lineTo(fx - w * 0.012, fy);
   ctx.lineTo(fx + w * 0.012, fy);
   ctx.fill();
-  center(ctx, "GESTION DES RÉGIES : UN SERVICE EN RÈGIE DIRECTE", w / 2, h * 0.22, "700 26px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif", "#3a2e1f");
+  center(ctx, "GESTION PAR LES RÉGIES : UN SERVICE EN RÈGIE DIRECTE", w / 2, h * 0.22, "700 26px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif", "#3a2e1f");
   finish(ctx, w, h, horizon);
 }
 
