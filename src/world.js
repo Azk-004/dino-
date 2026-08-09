@@ -239,9 +239,12 @@ export function buildPanel(st, curve, t, side, index) {
   tex.anisotropy = LOW ? 2 : 8;
 
   // Face en matériau diffus pur (Lambert) : aucune réflexion spéculaire, aucun reflet solaire — lecture parfaite
+  // Léger émissive blanc : la nuit, le panneau reste lisible (intensité pilotée depuis la scène)
   const frontMat = new THREE.MeshLambertMaterial({
     map: tex,
   });
+  frontMat.emissive = new THREE.Color(0xffffff);
+  frontMat.emissiveIntensity = 0;
   const front = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 4.0), frontMat);
   front.position.set(0, 3.0, 0.125);
   group.add(front);
@@ -400,6 +403,10 @@ export function buildBuilding(w, h, d, z, lateral) {
     roughness: 0.9,
     metalness: 0.0,
   });
+  // Fenêtres qui s'illuminent la nuit (même texture en émissive, intensité pilotée depuis la scène)
+  mat.emissive = new THREE.Color(0xffc98a);
+  mat.emissiveMap = tex;
+  mat.emissiveIntensity = 0;
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.position.set(lateral, h / 2 - 0.3, z);
   m.rotation.y = (Math.random() - 0.5) * 0.5;
@@ -1074,41 +1081,149 @@ export function buildHedge(pos, w = 1.8, h = 0.6) {
   return g;
 }
 
+// Palette partagée entre tous les passants (réutilisée : ~25 matériaux au lieu de ~130, moins de temps de compilation sur mobile)
+const PERSON_SKIN = [0xd9b08c, 0xc89a72, 0xb0835c, 0x8a6048, 0xe0b898].map(
+  (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 })
+);
+const PERSON_HAIR = [0x2e2418, 0x4a3624, 0x7d5c34, 0xc9a878, 0x22201e].map(
+  (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 })
+);
+const PERSON_SHIRT = [0xc9a87c, 0x8faa7d, 0xcfa574, 0xa8a4c8, 0x9db8bf, 0xd2a678, 0xe0b4a0, 0xb8c4a0].map(
+  (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 })
+);
+const PERSON_PANTS = [0x4a3c2e, 0x5c4a3a, 0x3f4654, 0x6a5a44, 0x55443c].map(
+  (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 })
+);
+const PERSON_SHOE = new THREE.MeshStandardMaterial({ color: 0x2e2418, roughness: 0.8 });
+const PERSON_HAT = new THREE.MeshStandardMaterial({ color: 0xcfae74, roughness: 0.9 });
+
+const PICK = (arr) => arr[(Math.random() * arr.length) | 0];
+
 export function buildPerson() {
-  // Passant stylisé (jambes animables séparément)
+  // Passant réaliste : silhouettes variées, membres articulés (hanches, genoux, épaules, coudes)
   const g = new THREE.Group();
-  const skin = new THREE.MeshStandardMaterial({ color: 0xd9b08c, roughness: 0.9 });
-  const shirtColors = [0xc9a87c, 0x8faa7d, 0xcfa574, 0xa8a4c8, 0x9db8bf, 0xd2a678];
-  const shirt = new THREE.MeshStandardMaterial({
-    color: shirtColors[(Math.random() * shirtColors.length) | 0],
-    roughness: 0.85,
-  });
-  const pants = new THREE.MeshStandardMaterial({ color: 0x5c4a3a, roughness: 0.9 });
-  // Tête
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), skin);
-  head.position.y = 1.62;
-  g.add(head);
-  // Torse
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.5, 0.2), shirt);
-  torso.position.y = 1.2;
+  // Variations de silhouette (taille / corpulence) et de tons de peau / cheveux
+  const tall = 0.92 + Math.random() * 0.18;
+  const wide = 0.85 + Math.random() * 0.32;
+  const skin = PICK(PERSON_SKIN);
+  const hairMat = PICK(PERSON_HAIR);
+  const shirt = PICK(PERSON_SHIRT);
+  const pants = PICK(PERSON_PANTS);
+  const shoeMat = PERSON_SHOE;
+  const isSkirt = Math.random() < 0.22;
+  const hasHat = Math.random() < 0.14;
+  const hasBag = Math.random() < 0.16;
+
+  // -------- Membres inférieurs : hanches -> cuisse -> genou -> tibia -> pied --------
+  const hipY = 0.9 * tall;
+  const hipX = 0.105 * wide;
+  const makeLeg = (x) => {
+    const leg = new THREE.Group();
+    leg.position.set(x, hipY, 0);
+    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.05, 0.46 * tall, 8), pants);
+    thigh.position.y = -0.23 * tall;
+    thigh.castShadow = true;
+    leg.add(thigh);
+    const knee = new THREE.Group();
+    knee.position.y = -0.46 * tall;
+    const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.44 * tall, 8), pants);
+    shin.position.y = -0.22 * tall;
+    knee.add(shin);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.17), shoeMat);
+    foot.position.set(0, -0.44 * tall, 0.045);
+    knee.add(foot);
+    leg.add(knee);
+    return { leg, knee };
+  };
+  const lL = makeLeg(-hipX);
+  const lR = makeLeg(hipX);
+  g.add(lL.leg, lR.leg);
+
+  // -------- Haut du corps (pivot au niveau des hanches : inclinaison naturelle en marchant) --------
+  const lean = new THREE.Group();
+  g.add(lean);
+
+  // Robe / jupe évasée (par-dessus les jambes qui marchent dessous)
+  if (isSkirt) {
+    const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.21 * wide, 0.34, 12), shirt);
+    skirt.position.y = 0.78 * tall;
+    skirt.castShadow = true;
+    lean.add(skirt);
+  }
+  // Torse légèrement conique (épaules plus larges que la taille) + ventre
+  const torso = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.175 * wide, 0.215 * wide, 0.54 * tall, 12),
+    shirt
+  );
+  torso.position.y = 1.2 * tall;
   torso.castShadow = true;
-  g.add(torso);
-  // Jambes animables
-  const legGeo = new THREE.BoxGeometry(0.12, 0.55, 0.14);
-  const legL = new THREE.Mesh(legGeo, pants);
-  legL.position.set(-0.09, 0.55, 0);
-  const legR = new THREE.Mesh(legGeo, pants);
-  legR.position.set(0.09, 0.55, 0);
-  g.add(legL, legR);
-  const arms = new THREE.Group();
-  const armGeo = new THREE.BoxGeometry(0.07, 0.42, 0.07);
-  const armL = new THREE.Mesh(armGeo, shirt);
-  armL.position.set(-0.24, 1.05, 0);
-  const armR = new THREE.Mesh(armGeo, shirt);
-  armR.position.set(0.24, 1.05, 0);
-  arms.add(armL, armR);
-  g.add(arms);
-  return { g, legL, legR, arms, phase: Math.random() * Math.PI * 2 };
+  lean.add(torso);
+  // Épaules arrondies
+  const shoulderMat = shirt;
+  for (const sx of [-0.19 * wide, 0.19 * wide]) {
+    const sh = new THREE.Mesh(new THREE.SphereGeometry(0.075 * wide, 8, 6), shoulderMat);
+    sh.position.set(sx, 1.42 * tall, 0);
+    lean.add(sh);
+  }
+  // Sac à bandoulière (parfois)
+  if (hasBag) {
+    const bag = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.17, 0.06), pants);
+    bag.position.set(0.3 * wide, 1.16 * tall, 0);
+    bag.rotation.z = 0.18;
+    lean.add(bag);
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.3, 0.02), pants);
+    strap.position.set(0.26 * wide, 1.32 * tall, 0);
+    strap.rotation.z = 0.4;
+    lean.add(strap);
+  }
+  // Cou + tête + cheveux
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.12, 8), skin);
+  neck.position.y = 1.5 * tall;
+  lean.add(neck);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.135, 12, 10), skin);
+  head.position.y = 1.64 * tall;
+  head.castShadow = true;
+  lean.add(head);
+  // Chevelure : calotte au-dessus/arrière de la tête (le visage reste visible)
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), hairMat);
+  hair.position.set(0, 1.66 * tall, -0.02);
+  hair.scale.set(1.0, 0.78, 1.06);
+  lean.add(hair);
+  // Petit chapeau de paille (parfois)
+  if (hasHat) {
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.2, 0.03, 12), PERSON_HAT);
+    brim.position.y = 1.74 * tall;
+    lean.add(brim);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), PERSON_HAT);
+    dome.position.y = 1.78 * tall;
+    dome.scale.set(1, 0.85, 1);
+    lean.add(dome);
+  }
+
+  // -------- Bras articulés : épaule -> bras -> coude -> avant-bras -> main --------
+  const makeArm = (x) => {
+    const arm = new THREE.Group();
+    arm.position.set(x, 1.4 * tall, 0);
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.062, 0.26, 8), shirt);
+    upper.position.y = -0.13;
+    upper.castShadow = true;
+    arm.add(upper);
+    const elbow = new THREE.Group();
+    elbow.position.y = -0.26;
+    const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.05, 0.24, 8), skin);
+    lower.position.y = -0.12;
+    elbow.add(lower);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), skin);
+    hand.position.y = -0.24;
+    elbow.add(hand);
+    arm.add(elbow);
+    return { arm, elbow };
+  };
+  const aL = makeArm(-0.235 * wide);
+  const aR = makeArm(0.235 * wide);
+  lean.add(aL.arm, aR.arm);
+
+  return { g, legL: lL.leg, legR: lR.leg, kneeL: lL.knee, kneeR: lR.knee, armL: aL.arm, armR: aR.arm, elbowL: aL.elbow, elbowR: aR.elbow, lean, phase: Math.random() * Math.PI * 2 };
 }
 
 export function buildFountain() {
@@ -1192,12 +1307,14 @@ export function buildBillboard(pos, angle = 0, lines = ["ESPACE", "PUBLICITAIRE"
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = LOW ? 2 : 8;
+  // Affiche qui s'illumine la nuit (émissive douce, pilotée depuis la scène)
   const face = new THREE.Mesh(
     new THREE.PlaneGeometry(5.3, 2.8),
-    new THREE.MeshLambertMaterial({ map: tex })
+    new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffd9a0, emissiveMap: tex, emissiveIntensity: 0 })
   );
   face.position.set(0, 3.6, 0.09);
   g.add(face);
+  g.userData = { face };
   return g;
 }
 
@@ -1254,11 +1371,66 @@ export function buildKiosk(pos, angle = 0) {
   tex.anisotropy = LOW ? 2 : 8;
   const sign = new THREE.Mesh(
     new THREE.PlaneGeometry(0.7, 0.5),
-    new THREE.MeshLambertMaterial({ map: tex })
+    new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffd9a0, emissiveMap: tex, emissiveIntensity: 0 })
   );
   sign.position.set(0, 1.35, 0.82);
   g.add(sign);
-  g.userData = { flag };
+  g.userData = { flag, sign };
+  return g;
+}
+
+export function buildMarketStall(pos, angle = 0, color = 0xc98f6a) {
+  // Étal de marché : table, paniers de fruits, auvent rayé et enseigne éclairée la nuit
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  g.rotation.y = angle;
+  const wood = new THREE.MeshStandardMaterial({ color: 0x8a6b45, roughness: 0.85 });
+  for (const x of [-1.0, 1.0]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 0.08), wood);
+    leg.position.set(x, 0.5, 0);
+    leg.castShadow = true;
+    g.add(leg);
+  }
+  const basket = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 0.8), wood);
+  basket.position.y = 0.97;
+  g.add(basket);
+  const table = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.06, 0.9), wood);
+  table.position.y = 1.03;
+  g.add(table);
+  // Panier de fruits
+  const fruitColors = [0xc05a4a, 0xcfa574, 0x7d9a68, 0x8a9ab8, 0xd2a678];
+  for (let i = 0; i < 5; i++) {
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshStandardMaterial({ color: fruitColors[i % fruitColors.length], roughness: 0.7 }));
+    f.position.set(-0.8 + i * 0.4, 1.12, 0);
+    f.scale.y = 0.85;
+    g.add(f);
+  }
+  // Auvent rayé
+  const awning = buildAwningStripes(2.4, 0.9, color);
+  awning.position.set(0, 2.1, 0.3);
+  g.add(awning);
+  // Enseigne éclairée la nuit
+  const c = document.createElement("canvas");
+  c.width = 256; c.height = 96;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#f7eeda";
+  ctx.fillRect(0, 0, 256, 96);
+  ctx.strokeStyle = "rgba(138,111,69,0.6)";
+  ctx.lineWidth = 6;
+  ctx.strokeRect(4, 4, 248, 88);
+  ctx.fillStyle = "#3a2e1f";
+  ctx.textAlign = "center";
+  ctx.font = "700 34px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  ctx.fillText("MARCHÉ", 128, 60);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.3, 0.5),
+    new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffd9a0, emissiveMap: tex, emissiveIntensity: 0 })
+  );
+  sign.position.set(0, 2.32, 0.05);
+  g.add(sign);
+  g.userData = { sign };
   return g;
 }
 
@@ -1276,5 +1448,241 @@ export function buildLeaf() {
     })
   );
   g.add(leaf);
+  return g;
+}
+
+// ---------------- Nouveaux éléments « rue vivante » ----------------
+
+export function buildGarland(a, b, colors = [0xc08a68, 0xcfa574, 0x9db87f, 0x8a9ab8, 0xd2a678], count = 10, sag = 0.7) {
+  // Guirlande de fanions tendue au-dessus de la rue, entre deux points a et b
+  const g = new THREE.Group();
+  const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
+  g.position.copy(mid);
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const mats = colors.map((c) => new THREE.MeshLambertMaterial({ color: c, side: THREE.DoubleSide }));
+  const flagGeo = new THREE.PlaneGeometry(0.42, 0.3);
+  const angle = Math.atan2(dir.x, dir.z);
+  const ropePts = [];
+  const n = count * 2;
+  for (let i = 0; i <= n; i++) {
+    const u = i / n;
+    const x = THREE.MathUtils.lerp(a.x, b.x, u) - mid.x;
+    const y = THREE.MathUtils.lerp(a.y, b.y, u) - sag * Math.sin(Math.PI * u) - mid.y;
+    const z = THREE.MathUtils.lerp(a.z, b.z, u) - mid.z;
+    ropePts.push(new THREE.Vector3(x, y, z));
+    if (i % 2 === 0) {
+      const flag = new THREE.Mesh(flagGeo, mats[(i / 2) % mats.length]);
+      flag.position.set(x, y - 0.15, z);
+      flag.rotation.y = angle;
+      g.add(flag);
+    }
+  }
+  const rope = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(ropePts),
+    new THREE.LineBasicMaterial({ color: 0x8a6a4e })
+  );
+  g.add(rope);
+  return g;
+}
+
+function buildAwningStripes(width, depth, color) {
+  // Toile d'auvent rayée (canvas) sur un pan incliné + rabat avant
+  const cw = 256, ch = 128;
+  const c = document.createElement("canvas");
+  c.width = cw; c.height = ch;
+  const ctx = c.getContext("2d");
+  const hex = "#" + color.toString(16).padStart(6, "0");
+  const n = 8;
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = i % 2 === 0 ? hex : "#f7eeda";
+    ctx.fillRect(i * (cw / n), 0, cw / n, ch);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = LOW ? 1 : 4;
+  const mat = new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
+  const g = new THREE.Group();
+  // Pan incliné : haut contre la façade, bas qui déborde sur le trottoir
+  const slope = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), mat);
+  slope.rotation.x = -0.5;
+  slope.position.set(0, 0.15, 0.45);
+  g.add(slope);
+  // Rabat avant
+  const flap = new THREE.Mesh(new THREE.PlaneGeometry(width, 0.2), mat);
+  flap.position.set(0, 0.1, depth * 0.85);
+  flap.rotation.x = -0.15;
+  g.add(flap);
+  return g;
+}
+
+export function buildStorefront(pos, angle = 0, color = 0xc98f6a, label = "BOUTIQUE") {
+  // Boutique basse avec vitrine, auvent rayé et enseigne — deuxième rangée de la rue
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  g.rotation.y = angle;
+  const w = 5.0, h = 3.3, d = 2.8;
+  const wallMat = new THREE.MeshLambertMaterial({ color: 0xe6d9bb });
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+  wall.position.y = h / 2;
+  wall.castShadow = true;
+  g.add(wall);
+  const cornice = new THREE.Mesh(new THREE.BoxGeometry(w + 0.24, 0.2, d + 0.24), wallMat);
+  cornice.position.y = h + 0.1;
+  g.add(cornice);
+
+  // Vitrine (canvas)
+  const cw = LOW ? 256 : 512;
+  const ch = LOW ? 160 : 320;
+  const c = document.createElement("canvas");
+  c.width = cw; c.height = ch;
+  const ctx = c.getContext("2d");
+  ctx.scale(cw / 512, ch / 320);
+  const grad = ctx.createLinearGradient(0, 0, 0, 320);
+  grad.addColorStop(0, "#f2e6c9");
+  grad.addColorStop(1, "#dccaa3");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 320);
+  // Étagères et produits
+  const shelfColors = ["#c08a68", "#7d9a68", "#cfa574"];
+  for (let s = 0; s < 3; s++) {
+    const sx = 30 + s * 160;
+    ctx.fillStyle = "rgba(122,95,56,0.5)";
+    ctx.fillRect(sx, 192, 120, 10);
+    ctx.fillStyle = shelfColors[s];
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.arc(sx + 22 + i * 26, 178, 9, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  // Reflet vitre
+  ctx.fillStyle = "rgba(255,255,255,0.2)";
+  ctx.beginPath();
+  ctx.moveTo(300, 0); ctx.lineTo(430, 0); ctx.lineTo(230, 320); ctx.lineTo(100, 320);
+  ctx.closePath(); ctx.fill();
+  // Cadre
+  ctx.strokeStyle = "#8a6a4e";
+  ctx.lineWidth = 12;
+  ctx.strokeRect(6, 6, 500, 308);
+  // Enseigne (Century Gothic, comme partout)
+  ctx.fillStyle = "#3a2e1f";
+  ctx.font = "700 36px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(label, 256, 52);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = LOW ? 2 : 8;
+  // Vitrine qui s'illumine la nuit (émissive = la vitrine dessinée devient un vrai éclairage)
+  const winMat = new THREE.MeshStandardMaterial({
+    map: tex,
+    emissive: 0xffd9a0,
+    emissiveMap: tex,
+    emissiveIntensity: 0,
+  });
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.8, h * 0.6), winMat);
+  win.position.set(0, h * 0.52, d / 2 + 0.03);
+  g.add(win);
+
+  // Auvent rayé (accroché sous la corniche, au-dessus de la vitrine)
+  const awning = buildAwningStripes(w * 0.84, 0.9, color);
+  awning.position.set(0, h - 0.55, d / 2 - 0.2);
+  g.add(awning);
+  g.userData = { window: win };
+  return g;
+}
+
+export function buildBus() {
+  // Bus urbain (transports en commun) — même logique d'animation que les voitures
+  const g = new THREE.Group();
+  const paint = new THREE.MeshStandardMaterial({ color: 0xc08a68, roughness: 0.5, metalness: 0.25 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x4a3a26, roughness: 0.5, metalness: 0.3 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x8fb0b8, roughness: 0.15, metalness: 0.5 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.3, 5.6), paint);
+  body.position.y = 1.15;
+  body.castShadow = true;
+  g.add(body);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.16, 5.4), paint);
+  roof.position.y = 1.9;
+  g.add(roof);
+  const winBand = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.52, 5.2), glass);
+  winBand.position.y = 1.56;
+  g.add(winBand);
+  const front = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 0.06), glass);
+  front.position.set(0, 1.5, 2.8);
+  g.add(front);
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x2e2418, roughness: 0.9 });
+  for (const [x, z] of [[-0.95, 1.7], [0.95, 1.7], [-0.95, -1.7], [0.95, -1.7]]) {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.26, 14), wheelMat);
+    wheel.rotation.x = Math.PI / 2;
+    wheel.rotation.z = Math.PI / 2;
+    wheel.position.set(x, 0.36, z);
+    g.add(wheel);
+  }
+  const hlMat = new THREE.MeshStandardMaterial({ color: 0xfff2cf, emissive: 0xffe0a0, emissiveIntensity: 0.5 });
+  for (const x of [-0.7, 0.7]) {
+    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), hlMat);
+    hl.position.set(x, 1.05, 2.82);
+    g.add(hl);
+  }
+  const cone = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: radialTexture(0.0, "rgba(255,226,175,0.4)"),
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false,
+  }));
+  cone.scale.set(4.2, 4.2, 1);
+  cone.position.set(0, 1.1, 4.6);
+  g.add(cone);
+  return { group: g, cone };
+}
+
+export function buildDog() {
+  // Chien stylisé (queue animable)
+  const g = new THREE.Group();
+  const fur = new THREE.MeshLambertMaterial({ color: 0xb98a5e, roughness: 0.9 });
+  const furDark = new THREE.MeshLambertMaterial({ color: 0x8a6240, roughness: 0.9 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.22, 0.55), fur);
+  body.position.y = 0.24;
+  body.castShadow = true;
+  g.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.15, 0.18), fur);
+  head.position.set(0, 0.36, 0.33);
+  g.add(head);
+  const ear = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.09, 0.11), furDark);
+  ear.position.set(0, 0.45, 0.34);
+  g.add(ear);
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.2), fur);
+  tail.position.set(0, 0.36, -0.37);
+  g.add(tail);
+  for (const [x, z] of [[-0.11, 0.18], [0.11, 0.18], [-0.11, -0.18], [0.11, -0.18]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.06), fur);
+    leg.position.set(x, 0.09, z);
+    g.add(leg);
+  }
+  g.userData = { tail };
+  return g;
+}
+
+export function buildBalloons(pos) {
+  // Ballons colorés sur une tige (devant le kiosque)
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  const stick = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.025, 0.025, 1.1, 6),
+    new THREE.MeshStandardMaterial({ color: 0x8a6a4e, roughness: 0.8 })
+  );
+  stick.position.y = 0.55;
+  g.add(stick);
+  const colors = [0xc05a4a, 0xcfa574, 0x7d9a68];
+  const balloons = [];
+  for (let i = 0; i < 3; i++) {
+    const b = new THREE.Mesh(
+      new THREE.SphereGeometry(0.21, 10, 8),
+      new THREE.MeshLambertMaterial({ color: colors[i], emissive: colors[i], emissiveIntensity: 0.08 })
+    );
+    b.position.set((i - 1) * 0.22, 1.2 + Math.sin(i * 2.1) * 0.05, (i % 2) * 0.12 - 0.06);
+    b.scale.set(1, 1.2, 1);
+    g.add(b);
+    balloons.push(b);
+  }
+  g.userData = { balloons };
   return g;
 }

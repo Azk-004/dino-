@@ -6,6 +6,7 @@ import {
   buildTree, buildFlowers, buildBin, buildPigeon, buildContactShadow,
   buildMorrisColumn, buildBusShelter, buildCafeTable, buildBicycle, buildRoadSign, buildHedge,
   buildPerson, buildFountain, buildBillboard, buildKiosk, buildLeaf,
+  buildGarland, buildStorefront, buildBus, buildDog, buildBalloons, buildMarketStall,
   setLowPower, isLowPower,
 } from "./world.js";
 
@@ -27,7 +28,23 @@ export function createScene(canvas, stations) {
 
   const camera = new THREE.PerspectiveCamera(isMobile ? 62 : 52, window.innerWidth / window.innerHeight, 0.1, 900);
 
-  // ---------------- Sky dome (gradient + stars) ----------------
+  // Palettes jour / nuit (couleurs pré-créées : aucune allocation par frame)
+const DAY_C = {
+  ambient: new THREE.Color(0xb3a280),
+  hemiSky: new THREE.Color(0xf2e6cc),
+  hemiGround: new THREE.Color(0xb8a67e),
+  sun: new THREE.Color(0xffedc8),
+  fog: new THREE.Color(0xf5ecd6),
+};
+const NIGHT_C = {
+  ambient: new THREE.Color(0x5f6b8c),
+  hemiSky: new THREE.Color(0x43537a),
+  hemiGround: new THREE.Color(0x232c40),
+  sun: new THREE.Color(0x9db4d8),
+  fog: new THREE.Color(0x31415e),
+};
+
+// ---------------- Sky dome (gradient + stars) ----------------
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -37,6 +54,12 @@ export function createScene(canvas, stations) {
       horizon: { value: new THREE.Color(PAL.skyHorizon) },
       sunDir: { value: new THREE.Vector3(0, 0.16, -1).normalize() },
       sunColor: { value: new THREE.Color(PAL.sun) },
+      night: { value: 0 },
+      topN: { value: new THREE.Color(0x0b1220) },
+      midN: { value: new THREE.Color(0x152238) },
+      horN: { value: new THREE.Color(0x31415e) },
+      moonDir: { value: new THREE.Vector3(0.22, 0.52, -0.83).normalize() },
+      moonColor: { value: new THREE.Color(0xd6e2f4) },
     },
     vertexShader: `
       varying vec3 vPos;
@@ -44,7 +67,8 @@ export function createScene(canvas, stations) {
     `,
     fragmentShader: `
       varying vec3 vPos;
-      uniform vec3 top, mid, horizon, sunColor, sunDir;
+      uniform vec3 top, mid, horizon, sunColor, sunDir, topN, midN, horN, moonDir, moonColor;
+      uniform float night;
       float hash(vec3 p) {
         p = fract(p * 0.3183099 + 0.1);
         p *= 17.0;
@@ -55,13 +79,19 @@ export function createScene(canvas, stations) {
         float h = clamp(dir.y, 0.0, 1.0);
         vec3 col = mix(horizon, mid, smoothstep(0.0, 0.12, h));
         col = mix(col, top, smoothstep(0.12, 0.5, h));
+        vec3 colN = mix(horN, midN, smoothstep(0.0, 0.12, h));
+        colN = mix(colN, topN, smoothstep(0.12, 0.5, h));
+        col = mix(col, colN, night);
         float sun = pow(max(dot(dir, sunDir), 0.0), 42.0) * 1.5;
         float halo = pow(max(dot(dir, sunDir), 0.0), 7.0) * 0.4;
-        col += sunColor * sun + sunColor * halo;
-        // Plein jour : plus d'étoiles dans le ciel clair
+        col += sunColor * (sun + halo) * (1.0 - night);
+        float moon = pow(max(dot(dir, moonDir), 0.0), 300.0) * 1.4;
+        float mHalo = pow(max(dot(dir, moonDir), 0.0), 9.0) * 0.4;
+        col += moonColor * (moon + mHalo) * night;
+        // Étoiles visibles uniquement la nuit
         float starMask = smoothstep(0.16, 0.32, h);
         float s = step(0.9991, hash(dir));
-        col += vec3(1.0) * s * starMask * 0.0;
+        col += vec3(1.0) * s * starMask * night * 0.85;
         gl_FragColor = vec4(col, 1.0);
       }
     `,
@@ -76,6 +106,14 @@ export function createScene(canvas, stations) {
   sunSprite.position.set(42, 56, -560);
   sunSprite.scale.setScalar(42);
   camera.add(sunSprite);
+  // Lune (visible la nuit, s'estompe le jour)
+  const moonSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: radialTexture(0.0, "rgba(214,226,244,0.5)"),
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, opacity: 0,
+  }));
+  moonSprite.position.set(-34, 54, -545);
+  moonSprite.scale.setScalar(30);
+  camera.add(moonSprite);
   // Plus de grand halo derrière le centre de l'écran : il éblouissait les panneaux en cours de lecture
   scene.add(camera);
 
@@ -135,6 +173,21 @@ export function createScene(canvas, stations) {
     scene.add(dash);
   }
 
+  // ---------------- Passages piétons (zèbre) ----------------
+  const zebraMat = new THREE.MeshBasicMaterial({ color: 0xf2ead2 });
+  for (const ct of [0.22, 0.58, 0.86]) {
+    const pz = curve.getPointAt(ct);
+    const tz = curve.getTangentAt(ct);
+    const pzPerp = new THREE.Vector3(-tz.z, 0, tz.x).normalize();
+    for (let i = -3; i <= 3; i++) {
+      const center = pz.clone().add(tz.clone().multiplyScalar(i * 0.55));
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.03, 3.3), zebraMat);
+      stripe.position.set(center.x, 0.05, center.z);
+      stripe.rotation.y = Math.atan2(pzPerp.x, pzPerp.z);
+      scene.add(stripe);
+    }
+  }
+
   // ---------------- Sidewalks (dalles claires le long de la route) ----------------
   const sideCurves = [3.55, -3.55].map((off) => {
     const pts = [];
@@ -184,9 +237,11 @@ export function createScene(canvas, stations) {
   scene.add(glowTube);
   const glowIndexCount = glowTube.geometry.index.count;
 
-  // ---------------- Lights ----------------
-  scene.add(new THREE.AmbientLight(0xb3a280, 0.75));
-  scene.add(new THREE.HemisphereLight(0xf2e6cc, 0xb8a67e, 0.5));
+  // ---------------- Lights (refs pour le mode jour/nuit) ----------------
+  const ambientLight = new THREE.AmbientLight(0xb3a280, 0.75);
+  scene.add(ambientLight);
+  const hemiLight = new THREE.HemisphereLight(0xf2e6cc, 0xb8a67e, 0.5);
+  scene.add(hemiLight);
   const sunLight = new THREE.DirectionalLight(0xffedc8, 2.2);
   sunLight.position.set(-40, 60, -120);
   sunLight.castShadow = true;
@@ -211,6 +266,16 @@ export function createScene(canvas, stations) {
   const kiosks = [];
   const bushes = [];
   const flowers = [];
+  const garlands = [];
+  const dogs = [];
+  const balloonGroups = [];
+  const buildings = [];
+  const storefronts = [];
+  const billboards = [];
+  const marketStalls = [];
+  // Mode jour/nuit (transition lissée à chaque frame)
+  let night = 0;
+  let nightTarget = 0;
   function placeBush(pos, scale) {
     const g = buildBush(pos, scale);
     bushes.push({ g, phase: Math.random() * Math.PI * 2 });
@@ -248,8 +313,10 @@ export function createScene(canvas, stations) {
     const h = 7 + Math.random() * 27;
     const w = 4 + Math.random() * 3.5;
     const d = 4 + Math.random() * 3.5;
-    scene.add(buildBuilding(w, h, d, z, -78 - Math.random() * 34));
-    scene.add(buildBuilding(w, h * (0.7 + Math.random() * 0.6), d, z, 78 + Math.random() * 34));
+    const b1 = buildBuilding(w, h, d, z, -78 - Math.random() * 34);
+    const b2 = buildBuilding(w, h * (0.7 + Math.random() * 0.6), d, z, 78 + Math.random() * 34);
+    buildings.push(b1, b2);
+    scene.add(b1, b2);
   }
 
   // ---------------- Mountain ridge ----------------
@@ -397,6 +464,40 @@ export function createScene(canvas, stations) {
     scene.add(buildBicycle(pos, Math.random() * Math.PI * 2));
   }
 
+  // ---------------- Guirlandes de fanions (au-dessus de la rue) ----------------
+  const garlandT = isMobile ? [0.28, 0.72] : [0.18, 0.5, 0.8];
+  garlandT.forEach((t) => {
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const a = p.clone().add(perp.clone().multiplyScalar(3.9));
+    const b = p.clone().add(perp.clone().multiplyScalar(-3.9));
+    a.y = 5.3; b.y = 5.3;
+    const gar = buildGarland(a, b);
+    garlands.push({ g: gar, phase: Math.random() * Math.PI * 2 });
+    scene.add(gar);
+  });
+
+  // ---------------- Boutiques de quartier (deuxième rangée, auvents rayés) ----------------
+  const SHOP_DEFS = [
+    { color: 0xc98f6a, label: "BOULANGERIE" },
+    { color: 0x7d9a68, label: "PHARMACIE" },
+    { color: 0x8a9ab8, label: "LIBRAIRIE" },
+    { color: 0xcfa574, label: "CAFÉ DU PARC" },
+  ];
+  const shopT = isMobile ? [0.15, 0.7] : [0.15, 0.38, 0.6, 0.84];
+  shopT.forEach((t, i) => {
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const pos = p.clone().add(perp.clone().multiplyScalar(-1 * (11 + (i % 2) * 2.4)));
+    const angle = Math.atan2(perp.x, perp.z);
+    const shop = buildStorefront(pos, angle, SHOP_DEFS[i % SHOP_DEFS.length].color, SHOP_DEFS[i % SHOP_DEFS.length].label);
+    storefronts.push(shop);
+    scene.add(shop);
+    scene.add(buildContactShadow(pos, 5.4, 3.2));
+  });
+
   // ---------------- Road signs (petite signalisation urbaine) ----------------
   const roadT = [0.32, 0.7];
   roadT.forEach((t, i) => {
@@ -433,7 +534,9 @@ export function createScene(canvas, stations) {
     const pos = p.clone().add(perp.clone().multiplyScalar(b.side * 7.6));
     // Le panneau regarde la route : le signe doit être À L'INTÉRIEUR de l'atan2
     const angle = Math.atan2(-perp.x * b.side, -perp.z * b.side);
-    scene.add(buildBillboard(pos, angle, b.lines));
+    const bb = buildBillboard(pos, angle, b.lines);
+    billboards.push(bb);
+    scene.add(bb);
     scene.add(buildContactShadow(pos, 6.4, 4.0));
     // Buissons derrière le panneau (côté champ), pas du côté route où sont les panneaux de leçon
     placeBush(pos.clone().add(perp.clone().multiplyScalar(b.side * 2.3)), 0.8);
@@ -460,6 +563,12 @@ export function createScene(canvas, stations) {
     }
     scene.add(buildTree(pos.clone().add(new THREE.Vector3(-3.4, 0, 1.4)), 1.3));
     scene.add(buildTree(pos.clone().add(new THREE.Vector3(3.2, 0, -1.2)), 1.2));
+    // Étal de marché (enseigne qui s'illumine la nuit)
+    const stallPos = pos.clone().add(new THREE.Vector3(3.9, 0, -3.4));
+    const stall = buildMarketStall(stallPos, Math.atan2(tg.x, tg.z) + Math.PI);
+    marketStalls.push(stall);
+    scene.add(stall);
+    scene.add(buildContactShadow(stallPos, 2.6, 1.4));
   }
 
   // ---------------- Kiosque de presse ----------------
@@ -475,23 +584,47 @@ export function createScene(canvas, stations) {
     scene.add(kiosk);
     scene.add(buildContactShadow(pos, 3.0, 2.6));
     scene.add(buildHedge(pos.clone().add(new THREE.Vector3(2.4, 0, 0)), 1.6, 0.5));
+    // Ballons colorés à côté du kiosque (petite danse dans l'air)
+    const balloons = buildBalloons(pos.clone().add(new THREE.Vector3(1.5, 0, 1.0)));
+    balloonGroups.push({ g: balloons, phase: Math.random() * Math.PI * 2 });
+    scene.add(balloons);
   }
 
   // ---------------- Passants animés (marchent le long des trottoirs) ----------------
   const walkers = [];
   const WALKER_COUNT = isMobile ? 7 : 14;
+  const KID_COUNT = isMobile ? 1 : 3;
   for (let i = 0; i < WALKER_COUNT; i++) {
+    const isKid = i < KID_COUNT;
     const person = buildPerson();
+    if (isKid) person.g.scale.setScalar(0.72);
     const dir = Math.random() > 0.5 ? 1 : -1;
     const side = Math.random() > 0.5 ? 1 : -1;
     walkers.push({
-      g: person.g, legL: person.legL, legR: person.legR, arms: person.arms,
+      g: person.g,
+      legL: person.legL, legR: person.legR, kneeL: person.kneeL, kneeR: person.kneeR,
+      armL: person.armL, armR: person.armR, elbowL: person.elbowL, elbowR: person.elbowR,
+      lean: person.lean,
       t: 0.02 + Math.random() * 0.96,
-      speed: (0.004 + Math.random() * 0.005) * dir,
+      speed: (isKid ? 0.009 : 0.004 + Math.random() * 0.005) * dir,
       side, off: 3.0 + Math.random() * 1.3, phase: person.phase,
       step: 0,
     });
     scene.add(person.g);
+  }
+
+  // ---------------- Chiens qui trottinent sur le trottoir ----------------
+  for (let i = 0; i < (isMobile ? 1 : 2); i++) {
+    const dog = buildDog();
+    const dir = Math.random() > 0.5 ? 1 : -1;
+    const side = Math.random() > 0.5 ? 1 : -1;
+    dogs.push({
+      g: dog, t: 0.08 + Math.random() * 0.84,
+      speed: (0.006 + Math.random() * 0.004) * dir,
+      side, off: 3.4 + Math.random() * 0.9,
+      phase: Math.random() * Math.PI * 2, step: 0,
+    });
+    scene.add(dog);
   }
 
   // ---------------- Dunes & rocks ----------------
@@ -610,6 +743,15 @@ export function createScene(canvas, stations) {
     scene.add(car.group);
   }
 
+  // ---------------- Bus (transports en commun) ----------------
+  const buses = [];
+  for (let i = 0; i < (isMobile ? 1 : 2); i++) {
+    const bus = buildBus();
+    buses.push({ g: bus.group, cone: bus.cone, t: 0.2 + i * 0.5, speed: 0.014 + Math.random() * 0.004, phase: Math.random() * Math.PI * 2 });
+    scene.add(bus.group);
+  }
+  const traffic = cars.concat(buses);
+
   // ---------------- State ----------------
   const camTarget = new THREE.Vector3();
   const camLook = new THREE.Vector3();
@@ -629,6 +771,25 @@ export function createScene(canvas, stations) {
     const dt = Math.min(0.05, Math.max(0.001, time - lastTime));
     lastTime = time;
     const t = 0.005 + progress * 0.98;
+
+    // ---- Transition jour / nuit (lissée) ----
+    night += (nightTarget - night) * Math.min(1, dt * 2.2);
+    const n = night;
+    skyMat.uniforms.night.value = n;
+    renderer.toneMappingExposure = THREE.MathUtils.lerp(renderer.toneMappingExposure, 1.25 + 0.32 * n, Math.min(1, dt * 2));
+    // Lumières du ciel : jour chaud -> nuit bleutée
+    ambientLight.color.copy(DAY_C.ambient).lerp(NIGHT_C.ambient, n);
+    ambientLight.intensity = 0.75 * (1 - n) + 0.4 * n;
+    hemiLight.color.copy(DAY_C.hemiSky).lerp(NIGHT_C.hemiSky, n);
+    hemiLight.groundColor.copy(DAY_C.hemiGround).lerp(NIGHT_C.hemiGround, n);
+    hemiLight.intensity = 0.5 * (1 - n) + 0.45 * n;
+    sunLight.color.copy(DAY_C.sun).lerp(NIGHT_C.sun, n);
+    sunLight.intensity = 2.2 * (1 - n) + 0.3 * n;
+    // La nuit, plus d'ombres portées : économie du rendu de la shadow map (2048²)
+    if ((n < 0.5) !== sunLight.castShadow) sunLight.castShadow = n < 0.5;
+    scene.fog.color.copy(DAY_C.fog).lerp(NIGHT_C.fog, n);
+    sunSprite.material.opacity = 1 - n;
+    moonSprite.material.opacity = n;
 
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -687,10 +848,12 @@ export function createScene(canvas, stations) {
       const lerpRate = hovered ? 0.12 : 0.08;
       pl.group.scale.setScalar(THREE.MathUtils.lerp(pl.group.scale.x, targetScale, lerpRate));
       if (pl.light) {
-        pl.light.intensity = THREE.MathUtils.lerp(pl.light.intensity, targetLight, lerpRate);
+        // La nuit, un léger éclairage chaud garde le panneau lisible
+        pl.light.intensity = THREE.MathUtils.lerp(pl.light.intensity, targetLight + n * 0.55, lerpRate);
       }
       pl.group.position.y = THREE.MathUtils.lerp(pl.group.position.y, isActive ? 0.22 : 0, 0.06);
-      pl.beaconMat.emissiveIntensity = 0.22 + Math.sin(time * 2.4 + i) * 0.1;
+      pl.beaconMat.emissiveIntensity = (0.22 + Math.sin(time * 2.4 + i) * 0.1) * (1 - n) + (1.3 + Math.sin(time * 2.4 + i) * 0.3) * n;
+      pl.frontMat.emissiveIntensity = THREE.MathUtils.lerp(pl.frontMat.emissiveIntensity, n * 0.3, 0.06);
 
       // Face the camera when close so panels are always "bien droit" on arrival
       const dx = camera.position.x - pl.group.position.x;
@@ -701,7 +864,7 @@ export function createScene(canvas, stations) {
       pl.group.rotation.y = THREE.MathUtils.lerp(pl.group.rotation.y, targetRot, faceW * 0.16);
     });
 
-    for (const c of cars) {
+    for (const c of traffic) {
       c.t = (c.t + c.speed * dt) % 1;
       const cp = curve.getPointAt(c.t);
       const cg = curve.getTangentAt(c.t);
@@ -741,18 +904,29 @@ export function createScene(canvas, stations) {
       );
       w.g.rotation.y = Math.atan2(wg.x, wg.z) + (w.side > 0 ? 0 : Math.PI);
       w.step += dt * (6 + Math.abs(w.speed) * 90);
-      const swing = Math.sin(w.step) * 0.55;
+      const swing = Math.sin(w.step) * 0.5;
+      // Cuisses opposées
       w.legL.rotation.x = swing;
       w.legR.rotation.x = -swing;
-      w.arms.rotation.x = -swing * 0.6;
-      w.g.position.y = Math.abs(Math.sin(w.step)) * 0.03;
+      // Genoux : la jambe arrière plie (talon qui remonte), l'avant se tend
+      w.kneeL.rotation.x = Math.max(0, -swing) * 0.95;
+      w.kneeR.rotation.x = Math.max(0, swing) * 0.95;
+      // Bras opposés + coudes qui plient en arrière
+      w.armL.rotation.x = -swing * 0.8;
+      w.armR.rotation.x = swing * 0.8;
+      w.elbowL.rotation.x = Math.max(0, swing) * 0.9;
+      w.elbowR.rotation.x = Math.max(0, -swing) * 0.9;
+      // Haut du corps : roulis du bassin, inclinaison vers l'avant, rebond
+      w.lean.rotation.z = Math.sin(w.step) * 0.025;
+      w.lean.rotation.x = 0.045 + Math.abs(Math.sin(w.step)) * 0.025;
+      w.g.position.y = Math.abs(Math.sin(w.step)) * 0.04;
     }
 
     for (const lb of lamps) {
-      // En plein jour les lampadaires sont éteints
+      // Éteints le jour, éclatants la nuit (transition douce)
       const f = 0.9 + Math.sin(time * 9 + lb.i * 1.7) * 0.09;
-      lb.glow.material.opacity = 0.08 * f;
-      lb.pool.material.opacity = 0.1 * f;
+      lb.glow.material.opacity = (0.08 * (1 - n) + 0.85 * n) * f;
+      lb.pool.material.opacity = (0.1 * (1 - n) + 0.55 * n) * f;
     }
 
     if (!meteor) {
@@ -798,7 +972,8 @@ export function createScene(canvas, stations) {
     }
 
     dust.rotation.y = time * 0.05;
-    dust.material.opacity = 0.5 + Math.sin(time * 3) * 0.12;
+    // Poussière dorée le jour, discrète la nuit (pas de faux effet « lucioles »)
+    dust.material.opacity = (0.5 + Math.sin(time * 3) * 0.12) * (1 - n * 0.7);
     dust.position.x = Math.sin(time * 0.12) * 2.4;
     dust.position.z = Math.cos(time * 0.09) * 1.6;
 
@@ -828,11 +1003,54 @@ export function createScene(canvas, stations) {
       ct.g.userData.parasol.rotation.x = Math.sin(time * 0.7 + ct.phase * 1.3) * 0.05;
     }
 
-    // Drapeau du kiosque qui flotte au vent
+    // Drapeau du kiosque qui flotte au vent + enseigne éclairée la nuit
     for (const k of kiosks) {
       const fl = k.g.userData.flag;
       fl.rotation.z = Math.sin(time * 2.4 + k.phase) * 0.28;
       fl.position.y = 2.42 + Math.sin(time * 2.4 + k.phase) * 0.04;
+      k.g.userData.sign.material.emissiveIntensity = n * 0.75;
+    }
+
+    // Fenêtres des immeubles : s'illuminent la nuit (léger scintillement par immeuble)
+    for (let i = 0; i < buildings.length; i++) {
+      buildings[i].material.emissiveIntensity = n * (0.8 + Math.sin(time * 1.6 + i * 1.7) * 0.18);
+    }
+
+    // Vitrines des boutiques, panneaux 4x3 et étal de marché : éclairage nocturne
+    const nightGlow = n * 0.85;
+    for (const s of storefronts) s.userData.window.material.emissiveIntensity = nightGlow;
+    for (const bb of billboards) bb.userData.face.material.emissiveIntensity = nightGlow;
+    for (const ms of marketStalls) ms.userData.sign.material.emissiveIntensity = nightGlow;
+
+    // Guirlandes de fanions : léger ballant dans la brise
+    for (const gd of garlands) {
+      gd.g.rotation.z = Math.sin(time * 0.7 + gd.phase) * 0.05;
+    }
+
+    // Chiens : trottinent sur le trottoir et remuent la queue
+    for (const dg of dogs) {
+      dg.t = (dg.t + dg.speed * dt) % 1;
+      if (dg.t < 0) dg.t += 1;
+      const dp = curve.getPointAt(dg.t);
+      const dtg = curve.getTangentAt(dg.t);
+      const dpp = new THREE.Vector3(-dtg.z, 0, dtg.x).normalize();
+      dg.g.position.set(
+        dp.x + dpp.x * dg.side * dg.off,
+        Math.abs(Math.sin(dg.step)) * 0.03,
+        dp.z + dpp.z * dg.side * dg.off
+      );
+      dg.g.rotation.y = Math.atan2(dtg.x, dtg.z) + (dg.side > 0 ? 0 : Math.PI);
+      dg.step += dt * 14;
+      dg.g.userData.tail.rotation.z = Math.sin(time * 7 + dg.phase) * 0.55;
+    }
+
+    // Ballons du kiosque : petite danse dans l'air
+    for (const bg of balloonGroups) {
+      const bals = bg.g.userData.balloons;
+      for (let i = 0; i < bals.length; i++) {
+        bals[i].position.y = 1.2 + Math.sin(i * 2.1) * 0.05 + Math.sin(time * 1.1 + bg.phase + i * 1.7) * 0.12;
+        bals[i].position.x = (i - 1) * 0.22 + Math.sin(time * 0.8 + i * 2.3) * 0.04;
+      }
     }
 
     // Buissons et fleurs : balancement doux (décor uniquement, jamais sur les panneaux)
@@ -894,5 +1112,5 @@ export function createScene(canvas, stations) {
     renderer.render(scene, camera);
   }
 
-  return { render, resize, update, pick, getCameraPos, setHover };
+  return { render, resize, update, pick, getCameraPos, setHover, setNight: (v) => { nightTarget = v ? 1 : 0; } };
 }

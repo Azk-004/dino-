@@ -63,6 +63,23 @@ const course = initCourse({
 document.getElementById("mode-journey").addEventListener("click", () => setMode("journey"));
 document.getElementById("mode-course-btn").addEventListener("click", () => setMode("course"));
 
+// ---------------- Mode jour / nuit ----------------
+// Icônes SVG sobres (aucun emoji « sticker ») : soleil le jour, croissant la nuit
+const SUN_ICON = '<svg class="dn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/></svg>';
+const MOON_ICON = '<svg class="dn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>';
+const daynightBtn = document.getElementById("ui-daynight");
+function setDayNight(night) {
+  scene.setNight(night);
+  daynightBtn.classList.toggle("night", night);
+  daynightBtn.setAttribute("aria-pressed", String(night));
+  daynightBtn.innerHTML = (night ? MOON_ICON : SUN_ICON) + (night ? " Nuit" : " Jour");
+  try { localStorage.setItem("panneau-night", night ? "1" : "0"); } catch (e) { /* stockage indisponible */ }
+}
+daynightBtn.addEventListener("click", () => setDayNight(!daynightBtn.classList.contains("night")));
+let savedNight = false;
+try { savedNight = localStorage.getItem("panneau-night") === "1"; } catch (e) { /* ignore */ }
+setDayNight(savedNight);
+
 // ---------------- Scroll length ----------------
 const UNITS = N + 2; // intro + stations + outro
 const scrollEl = document.getElementById("scroll");
