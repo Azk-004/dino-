@@ -16,7 +16,7 @@ export function initCourse({ onExit, onScrollTo, onQuiz }) {
 
   // ---------------- Cover ----------------
   coverEl.innerHTML = `
-    <div class="course-cover-kicker">${COURSE.module} — Formation</div>
+    <div class="course-cover-kicker">${COURSE.module} — Formation :</div>
     <h1 class="course-cover-title">${COURSE.title}</h1>
     <div class="course-cover-sub">${COURSE.subtitle}</div>
     <div class="course-cover-rule"></div>

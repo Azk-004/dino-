@@ -1,15 +1,15 @@
 export const COURSE = {
   module: "Module 1",
-  title: "Formation sur la panneautique",
-  subtitle: "Domaine public",
+  title: "Formation sur la panneautique.",
+  subtitle: "Domaine public :",
 };
 
 export const CHAPITRES = [
-  { name: "Chapitre 1", label: "Introduction" },
-  { name: "Chapitre 2", label: "Réorganisation & Réaménagement du secteur" },
-  { name: "Chapitre 3", label: "Évaluation du système d'exploitation" },
-  { name: "Chapitre 4", label: "Mise à jour" },
-  { name: "Questionnaire", label: "Module 1" },
+  { name: "Chapitre 1", label: "Introduction :" },
+  { name: "Chapitre 2", label: "Réorganisation & Réaménagement du secteur :" },
+  { name: "Chapitre 3", label: "Évaluation du système d'exploitation :" },
+  { name: "Chapitre 4", label: "Mise à jour :" },
+  { name: "Questionnaire", label: "Module 1 :" },
 ];
 
 export const STATIONS = [
@@ -17,19 +17,19 @@ export const STATIONS = [
     id: "presentation",
     chapter: 0,
     num: "01",
-    kicker: "Chapitre 1 · Présentation",
-    title: "La panneautique, un véritable corps de métier",
+    kicker: "Chapitre 1 · Présentation :",
+    title: "La panneautique, un véritable corps de métier.",
     bullets: [
       "Ensemble des moyens et techniques d'installation et de gestion des panneaux publicitaires",
       "Une étude pluridisciplinaire",
     ],
     content: [
       {
-        t: "Un métier à part entière",
+        t: "Un métier à part entière :",
         b: "La panneautique, en tant qu'ensemble des moyens et techniques d'installation et de gestion des panneaux publicitaires, est un véritable corps de métier dont l'étude est pluridisciplinaire.",
       },
       {
-        t: "Ce que vous allez parcourir",
+        t: "Ce que vous allez parcourir :",
         b: "L'importance du panneau publicitaire, le constat général du secteur, puis la réorganisation complète en sept étapes, l'évaluation du système et sa mise à jour. Un questionnaire de douze questions clôture le module.",
       },
     ],
@@ -38,8 +38,8 @@ export const STATIONS = [
     id: "lecon1-importance",
     chapter: 0,
     num: "02",
-    kicker: "Chapitre 1 · Leçon 1",
-    title: "Le panneau publicitaire et son importance socio-économique",
+    kicker: "Chapitre 1 · Leçon 1 :",
+    title: "Le panneau publicitaire et son importance socio-économique.",
     bullets: [
       "Booste la concurrence entre les entreprises",
       "Propulse l'économie : compétitivité des acteurs",
@@ -48,15 +48,15 @@ export const STATIONS = [
     ],
     content: [
       {
-        t: "Un moteur pour la concurrence",
+        t: "Un moteur pour la concurrence :",
         b: "L'exploitation des panneaux publicitaires est une activité qui booste la concurrence entre les entreprises. Elle propulse l'économie grâce à l'accroissement et à l'amélioration de la compétitivité des différents acteurs de la vie économique d'un pays.",
       },
       {
-        t: "Le support de publicité par excellence",
+        t: "Le support de publicité par excellence :",
         b: "Vecteur de publicité, le panneau stimule et encourage la consommation. Lorsque l'activité est bien réglementée et bien encadrée, les normes d'exercice garantissent l'équité dans la gestion du secteur. On ne paie pas pour regarder un panneau : c'est le support publicitaire par excellence.",
       },
       {
-        t: "Une part du décor urbain",
+        t: "Une part du décor urbain :",
         b: "Par leurs aménagements, les panneaux publicitaires contribuent à l'embellissement des villes. Le choix des supports ne doit donc plus être motivé seulement par leur design, mais aussi par un besoin d'esthétique, pour un environnement et un cadre de vie plus agréables à la vue.",
       },
     ],
@@ -65,8 +65,8 @@ export const STATIONS = [
     id: "lecon2-constat",
     chapter: 0,
     num: "03",
-    kicker: "Chapitre 1 · Leçon 2",
-    title: "Constat général",
+    kicker: "Chapitre 1 · Leçon 2 :",
+    title: "Constat général.",
     bullets: [
       "Pléthore de panneaux, parfois dans les capitales",
       "Pollution visuelle, insalubrité, insécurité",
@@ -75,7 +75,7 @@ export const STATIONS = [
     ],
     content: [
       {
-        t: "Des villes saturées",
+        t: "Des villes saturées :",
         b: "Dans beaucoup de villes à travers le monde — l'Afrique en est un bel exemple —, il est fréquent de constater, parfois dans des capitales, des cas de pléthore de panneaux publicitaires, cause de pollution visuelle, d'insalubrité et d'insécurité pour les personnes et les biens.",
       },
       {
@@ -83,7 +83,7 @@ export const STATIONS = [
         b: "Un secteur d'exploitation mal organisé, mal encadré, ou pas encadré du tout, où règnent l'anarchie et le désordre, en est la source. L'état délabré et obsolète des supports, l'absence de normes et de réglementations rendent le secteur contre-productif et dégradent l'environnement.",
       },
       {
-        t: "Des mesures nécessaires",
+        t: "Des mesures nécessaires :",
         b: "Il importe donc, pour le rayonnement du secteur et pour sa contribution effective au développement socio-économique des villes, que des mesures adéquates soient prises.",
       },
     ],
@@ -92,8 +92,8 @@ export const STATIONS = [
     id: "audit",
     chapter: 1,
     num: "04",
-    kicker: "Chapitre 2 · Étape 1 · Audit",
-    title: "Audit de la gestion en cours",
+    kicker: "Chapitre 2 · Étape 1 · Audit :",
+    title: "Audit de la gestion en cours.",
     bullets: [
       "Liste exhaustive de tous les acteurs du secteur",
       "Examen du mécanisme d'attribution des supports",
@@ -101,7 +101,7 @@ export const STATIONS = [
     ],
     content: [
       {
-        t: "Étape 3.1",
+        t: "Étape 3.1 :",
         b: "Pour que l'activité d'exploitation des panneaux publicitaires participe au rayonnement d'une ville (ou d'un pays), il faut faire un audit de la gestion en cours.",
       },
       {
@@ -114,19 +114,19 @@ export const STATIONS = [
     id: "etat-lieux",
     chapter: 1,
     num: "05",
-    kicker: "Chapitre 2 · Étape 2 · État des lieux",
-    title: "État des lieux du parc existant",
+    kicker: "Chapitre 2 · Étape 2 · État des lieux :",
+    title: "État des lieux du parc existant.",
     bullets: [
       "Relevé GPS détaillé et précis de tous les panneaux",
       "Plan piqué géolocalisable des supports",
     ],
     content: [
       {
-        t: "Étape 3.2",
+        t: "Étape 3.2 :",
         b: "Faire le relevé (GPS) détaillé et précis de l'ensemble des panneaux publicitaires présents.",
       },
       {
-        t: "Un plan géolocalisable",
+        t: "Un plan géolocalisable :",
         b: "Établir le plan piqué géolocalisable de ces supports : chaque panneau est localisé avec précision sur le territoire.",
       },
     ],
@@ -135,8 +135,8 @@ export const STATIONS = [
     id: "zonage",
     chapter: 1,
     num: "06",
-    kicker: "Chapitre 2 · Étape 3 · Zonage",
-    title: "Zonage du territoire",
+    kicker: "Chapitre 2 · Étape 3 · Zonage :",
+    title: "Zonage du territoire.",
     bullets: [
       "Délimitation selon des normes spécifiques du territoire",
       "Des supports facteurs d'embellissement et de modernité",
@@ -145,11 +145,11 @@ export const STATIONS = [
     ],
     content: [
       {
-        t: "Étape 3.3",
+        t: "Étape 3.3 :",
         b: "Pour un réaménagement optimal du plan d'implantation des panneaux publicitaires, il faut effectuer des délimitations suivant des normes spécifiques du territoire et proposer des supports facteurs d'embellissement et symboles de modernité.",
       },
       {
-        t: "Le but du zonage",
+        t: "Le but du zonage :",
         b: "Créer les conditions d'un développement harmonieux et équilibré du paysage de l'affichage publicitaire, ainsi que l'établissement de grilles tarifaires en adéquation avec les réalités économiques des villes. Il consiste donc à délimiter des espaces à cette fin.",
       },
     ],
@@ -158,8 +158,8 @@ export const STATIONS = [
     id: "constitution-lots",
     chapter: 1,
     num: "07",
-    kicker: "Chapitre 2 · Étape 4 · Constitution des lots",
-    title: "Constitution des lots",
+    kicker: "Chapitre 2 · Étape 4 · Constitution des lots :",
+    title: "Constitution des lots.",
     bullets: [
       "Le « Mobilier Urbain de Publicité » : des objets d'embellissement",
       "Des lots pour les appels d'offres",
@@ -167,15 +167,15 @@ export const STATIONS = [
     ],
     content: [
       {
-        t: "Étape 4",
+        t: "Étape 4 :",
         b: "Le terme « Mobilier Urbain de Publicité » s'inscrit dans un contexte où les panneaux publicitaires ne sont plus seulement des supports publicitaires, mais de véritables objets (ou meubles) d'embellissement et de décoration des villes.",
       },
       {
-        t: "Vers les appels d'offres",
+        t: "Vers les appels d'offres :",
         b: "Après études et validation des supports devant être pris en compte dans le cadre du réaménagement, on procède à la constitution des lots devant faire l'objet d'appels d'offres pour la mise en concession des différents espaces publicitaires.",
       },
       {
-        t: "Un équilibre garanti",
+        t: "Un équilibre garanti :",
         b: "La constitution des lots est faite de manière à garantir l'équilibre des espaces et celui en matière de type de support des différentes régies publicitaires.",
       },
     ],
@@ -184,8 +184,8 @@ export const STATIONS = [
     id: "mise-concession",
     chapter: 1,
     num: "08",
-    kicker: "Chapitre 2 · Étape 5 · Mise en concession",
-    title: "Mise en concession des espaces",
+    kicker: "Chapitre 2 · Étape 5 · Mise en concession :",
+    title: "Mise en concession des espaces.",
     bullets: [
       "Une technique variable selon les pays",
       "Fonction des réalités économiques et législatives",
@@ -193,11 +193,11 @@ export const STATIONS = [
     ],
     content: [
       {
-        t: "Étape 5",
+        t: "Étape 5 :",
         b: "La technique de mise en concession des espaces publicitaires est variable. Elle est fonction des réalités économiques, politico-administratives et de la législation en vigueur dans chaque pays.",
       },
       {
-        t: "À retenir",
+        t: "À retenir :",
         b: "NB : il faut partir d'exemples précis et traiter le sujet au cas par cas.",
       },
     ],
@@ -206,15 +206,15 @@ export const STATIONS = [
     id: "attribution",
     chapter: 1,
     num: "09",
-    kicker: "Chapitre 2 · Étape 6 · Attribution",
-    title: "Attribution des espaces",
+    kicker: "Chapitre 2 · Étape 6 · Attribution :",
+    title: "Attribution des espaces.",
     bullets: [
       "Sur la base du cahier des charges",
       "Contenu dans le dossier d'appel d'offres",
     ],
     content: [
       {
-        t: "Étape 6",
+        t: "Étape 6 :",
         b: "L'attribution des espaces aux régies publicitaires est faite sur la base du cahier des charges contenu dans le dossier d'appel d'offres.",
       },
     ],
@@ -223,8 +223,8 @@ export const STATIONS = [
     id: "gestion",
     chapter: 1,
     num: "10",
-    kicker: "Chapitre 2 · Étape 7 · Gestion",
-    title: "Gestion des régies publicitaires",
+    kicker: "Chapitre 2 · Étape 7 · Gestion :",
+    title: "Gestion des régies publicitaires.",
     bullets: [
       "Collectivités locales ou Gouvernement",
       "Selon les textes en vigueur dans chaque pays",
@@ -232,11 +232,11 @@ export const STATIONS = [
     ],
     content: [
       {
-        t: "Étape 7",
+        t: "Étape 7 :",
         b: "La gestion des régies publicitaires est faite, dans certains pays, par les collectivités locales. Dans d'autres, elle est du ressort du Gouvernement par l'intermédiaire du Ministère de la Communication, etc.",
       },
       {
-        t: "L'essentiel",
+        t: "L'essentiel :",
         b: "Plus généralement, c'est selon les textes et dispositions en vigueur dans chaque pays. L'essentiel est que la transparence, le professionnalisme et l'efficience soient rigoureusement observés.",
       },
     ],
@@ -245,8 +245,8 @@ export const STATIONS = [
     id: "evaluation",
     chapter: 2,
     num: "11",
-    kicker: "Chapitre 3 · Évaluation",
-    title: "Évaluer le système d'exploitation du Mobilier Urbain de Publicité",
+    kicker: "Chapitre 3 · Évaluation :",
+    title: "Évaluer le système d'exploitation du Mobilier Urbain de Publicité.",
     bullets: [
       "Évaluer tout le processus, de l'audit à la gestion",
       "Un mécanisme scientifiquement soutenable et autonome",
@@ -254,11 +254,11 @@ export const STATIONS = [
     ],
     content: [
       {
-        t: "Chapitre 3",
+        t: "Chapitre 3 :",
         b: "Pour garantir un développement harmonieux du secteur d'exploitation des panneaux publicitaires / Mobilier Urbain de Publicité, il faut prévoir, dans les réformes, un mécanisme d'évaluation de l'ensemble du processus, depuis l'audit jusqu'à la gestion des régies publicitaires.",
       },
       {
-        t: "Un pilotage autonome",
+        t: "Un pilotage autonome :",
         b: "Le mécanisme d'évaluation doit être scientifiquement soutenable, avec une autonomie certaine dans son pilotage. L'évaluation permet de prévenir les risques de dérapage et de sécuriser les intérêts des différents acteurs du secteur et des populations, à travers leur cadre de vie, sur le long terme.",
       },
     ],
@@ -267,8 +267,8 @@ export const STATIONS = [
     id: "mise-a-jour",
     chapter: 3,
     num: "12",
-    kicker: "Chapitre 4 · Mise à jour",
-    title: "Pérenniser et faire évoluer le secteur",
+    kicker: "Chapitre 4 · Mise à jour :",
+    title: "Pérenniser et faire évoluer le secteur.",
     bullets: [
       "Pérenniser les acquis de développement",
       "Le rayonnement des villes par les supports",
@@ -276,7 +276,7 @@ export const STATIONS = [
     ],
     content: [
       {
-        t: "Chapitre 4",
+        t: "Chapitre 4 :",
         b: "La mise à jour du secteur d'exploitation des panneaux publicitaires / Mobilier Urbain de Publicité est importante pour pérenniser les acquis de développement de l'activité.",
       },
       {
@@ -284,7 +284,7 @@ export const STATIONS = [
         b: "Elle est importante pour le rayonnement des villes par l'exploitation des supports de publicité et favorisera l'essor de l'activité en adéquation avec l'urbanisation.",
       },
       {
-        t: "Concrètement",
+        t: "Concrètement :",
         b: "Elle consiste à s'assurer que le secteur, dans son évolution, soit en phase avec l'évolution démographique et le développement infrastructurel des villes.",
       },
     ],
@@ -293,8 +293,8 @@ export const STATIONS = [
     id: "quiz",
     chapter: 4,
     num: "13",
-    kicker: "Questionnaire · Module 1",
-    title: "Douze questions pour valider le module",
+    kicker: "Questionnaire · Module 1 :",
+    title: "Douze questions pour valider le module.",
     bullets: [
       "5 définitions",
       "7 questions de compréhension",

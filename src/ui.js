@@ -268,7 +268,7 @@ function showResult(state, el) {
   else if (pct >= 50) msg = "Bien. Relisez les leçons indiquées pour consolider vos acquis.";
   else msg = "Le module mérite une seconde lecture : remontez le parcours et revivez les étapes.";
 
-  el.resultTitle.textContent = pct >= 70 ? "Formation validée" : "Formation à revoir";
+  el.resultTitle.textContent = pct >= 70 ? "Formation validée." : "Formation à revoir.";
   const wrong = QUIZ.length - state.score;
   el.resultText.innerHTML = `Score : <strong>${state.score} / ${QUIZ.length}</strong> — ${msg}<br><span class="result-breakdown">${state.score} bonne${state.score > 1 ? "s" : ""} réponse${state.score > 1 ? "s" : ""} · ${wrong} à revoir</span>`;
   el.quizResult.classList.remove("hide");
