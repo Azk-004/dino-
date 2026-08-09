@@ -126,8 +126,10 @@ function onScroll(scrollY) {
   activeIndex = Math.max(0, Math.min(N - 1, rawIndex));
 }
 
+let lastScrollAt = 0;
 lenis.on("scroll", ({ scroll }) => {
   onScroll(scroll);
+  lastScrollAt = performance.now();
 });
 
 onScroll(window.scrollY || 0);
@@ -164,9 +166,17 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (ui.isReaderOpen()) {
+    const panel = document.querySelector(".reader-panel");
     if (e.key === "Escape") ui.closeReader();
     else if (e.key === "ArrowLeft") ui.readerNav(-1);
     else if (e.key === "ArrowRight") ui.readerNav(1);
+    else if (e.key === "ArrowDown" || e.key === "PageDown") {
+      e.preventDefault();
+      panel.scrollBy({ top: Math.min(panel.clientHeight * 0.7, panel.scrollHeight - panel.scrollTop), behavior: "smooth" });
+    } else if (e.key === "ArrowUp" || e.key === "PageUp") {
+      e.preventDefault();
+      panel.scrollBy({ top: -panel.clientHeight * 0.7, behavior: "smooth" });
+    }
     return;
   }
   if (e.key === "Enter" && activeIndex >= 0 && !ui.quizOpen()) {
@@ -189,8 +199,11 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-// Lock page scroll while the lesson reader is open
+// Pendant la lecture d'une leçon : le scroll de la page est verrouillé (CSS),
+// seul le panneau de la leçon défile. `data-lenis-prevent` laisse la molette
+// scroller le panneau nativement ; le verrou HTML empêche tout défilement de fond.
 ui.setReaderListener((open) => {
+  document.documentElement.classList.toggle("reader-lock", open);
   if (open) {
     lenis.stop();
   } else {
@@ -225,6 +238,12 @@ window.addEventListener("mousemove", (e) => {
     hoverQueued = false;
     if (course.isOpen()) return;
     if (ui.isReaderOpen()) return;
+    // Pendant / juste après le scroll : pas de survol (les panneaux ne « clignotent » pas)
+    if (performance.now() - lastScrollAt < 200) {
+      document.body.classList.remove("hover-pick");
+      scene.setHover(-1);
+      return;
+    }
     const { nx, ny } = toNDC(e);
     const hit = scene.pick(nx, ny);
     document.body.classList.toggle("hover-pick", !!hit);

@@ -23,6 +23,7 @@ export function initUI() {
     resultTitle: $("#quiz-result .result-title"),
     resultText: $("#quiz-result .result-text"),
     reader: $("#ui-reader"),
+    readerPanel: $(".reader-panel"),
     readerKicker: $("#ui-reader .reader-kicker"),
     readerTitle: $("#ui-reader .reader-title"),
     readerBody: $("#ui-reader .reader-body"),
@@ -131,6 +132,8 @@ export function initUI() {
       });
     }
     el.readerCount.textContent = `${String(i + 1).padStart(2, "0")} / ${String(STATIONS.length).padStart(2, "0")}`;
+    // Chaque leçon s'ouvre en haut de son contenu (après remplissage)
+    el.readerPanel.scrollTop = 0;
     el.title.classList.add("hide");
     el.reader.classList.add("show");
     if (onReaderChange) onReaderChange(true);

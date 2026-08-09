@@ -600,8 +600,11 @@ html.ts-lg .reader-title, html.ts-lg .course-sec-title { font-size: clamp(27px, 
   z-index: 40;
 }
 #ui-reader.show { opacity: 1; visibility: visible; pointer-events: auto; }
+/* Pendant la lecture d'une leçon, le scroll n'agit que sur la leçon : la page est figée */
+html.reader-lock, html.reader-lock body { overflow: hidden; overscroll-behavior: none; }
 .reader-panel {
   width: min(580px, 92vw); max-height: 76vh; overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 34px 40px 26px;
   position: relative;
   border: 1px solid rgba(201, 143, 78, 0.45);

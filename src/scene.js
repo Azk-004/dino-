@@ -7,6 +7,9 @@ import {
   buildMorrisColumn, buildBusShelter, buildCafeTable, buildBicycle, buildRoadSign, buildHedge,
   buildPerson, buildFountain, buildBillboard, buildKiosk, buildLeaf,
   buildGarland, buildStorefront, buildBus, buildDog, buildBalloons, buildMarketStall,
+  buildTrafficLight, buildBollard, buildHydrant, buildMailbox, buildSucette,
+  buildPlanterTree, buildLaneArrow,
+  buildConifer, buildManhole, buildUtilityPole, buildWire, buildTrafficCone,
   setLowPower, isLowPower,
 } from "./world.js";
 
@@ -150,27 +153,44 @@ const NIGHT_C = {
   const curve = new THREE.CatmullRomCurve3(pts, false, "centripetal", 0.6);
   curve.arcLengthDivisions = 1000;
 
-  // ---------------- Road + center dashes ----------------
+  // ---------------- Road + markings (vrai bitume) ----------------
   const rbSamples = isMobile ? 240 : 500;
   const road = buildRibbon(curve, 4.2, PAL.path, asphaltTexture(), rbSamples);
   road.position.y = 0.012;
   scene.add(road);
-  for (const off of [-1.5, 1.5]) {
-    const edge = buildRibbon(curve, 0.14, PAL.pathEdge, null, rbSamples);
-    edge.position.set(off, 0.025, 0);
+  // Lignes de rive blanches continues, le long de la vraie géométrie de la route
+  const edgeCurves = [1.85, -1.85].map((off) => {
+    const pts = [];
+    const n = isMobile ? 60 : 120;
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const p = curve.getPointAt(t);
+      const tg = curve.getTangentAt(t);
+      const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+      pts.push(new THREE.Vector3(p.x + perp.x * off, 0, p.z + perp.z * off));
+    }
+    return new THREE.CatmullRomCurve3(pts, false, "centripetal", 0.6);
+  });
+  for (const ec of edgeCurves) {
+    const edge = buildRibbon(ec, 0.14, PAL.pathEdge, null, rbSamples, true);
+    edge.position.y = 0.032;
     scene.add(edge);
   }
+  // Double ligne axiale discontinue (jaune), de part et d'autre du fil de progression
   for (let i = 0; i <= rb(84); i++) {
     const t = (i / 84) * 0.96 + 0.02;
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
-    const dash = new THREE.Mesh(
-      new THREE.BoxGeometry(0.14, 0.03, 1.1),
-      new THREE.MeshBasicMaterial({ color: 0xd9c08c })
-    );
-    dash.position.set(p.x, 0.045, p.z);
-    dash.rotation.y = Math.atan2(tg.x, tg.z);
-    scene.add(dash);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    for (const off of [-1.25, 1.25]) {
+      const dash = new THREE.Mesh(
+        new THREE.BoxGeometry(0.16, 0.03, 1.3),
+        new THREE.MeshBasicMaterial({ color: 0xe2bd4a })
+      );
+      dash.position.set(p.x + perp.x * off, 0.05, p.z + perp.z * off);
+      dash.rotation.y = Math.atan2(tg.x, tg.z);
+      scene.add(dash);
+    }
   }
 
   // ---------------- Passages piétons (zèbre) ----------------
@@ -185,6 +205,17 @@ const NIGHT_C = {
       stripe.position.set(center.x, 0.05, center.z);
       stripe.rotation.y = Math.atan2(pzPerp.x, pzPerp.z);
       scene.add(stripe);
+    }
+  }
+
+  // ---------------- Flèches directionnelles peintes sur le bitume ----------------
+  for (const at of [0.3, 0.55, 0.78]) {
+    const p = curve.getPointAt(at);
+    const tg = curve.getTangentAt(at);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    for (const off of [-1.1, 1.1]) {
+      const pos = p.clone().add(perp.clone().multiplyScalar(off));
+      scene.add(buildLaneArrow(pos, Math.atan2(tg.x, tg.z)));
     }
   }
 
@@ -308,7 +339,7 @@ const NIGHT_C = {
   });
 
   // ---------------- City skyline both sides ----------------
-  for (let i = 0; i < rb(40); i++) {
+  for (let i = 0; i < rb(48); i++) {
     const z = i * 13 + Math.random() * 7;
     const h = 7 + Math.random() * 27;
     const w = 4 + Math.random() * 3.5;
@@ -377,10 +408,10 @@ const NIGHT_C = {
   }
 
   // ---------------- Trees (feuillus) le long du parcours ----------------
-  // Écartés de la bande des panneaux de leçon (offset ~5,4) : feuillage jamais devant le texte.
+  // Écartés de la bande des panneaux de leçon (reculés à ~7,4 m) : feuillage jamais devant le texte.
   const trees = [];
   const panelT = stations.map((s, i) => 0.02 + ((i + 0.5) / N) * 0.94);
-  for (let i = 0; i < rb(30); i++) {
+  for (let i = 0; i < rb(36); i++) {
     let t = Math.random();
     for (let guard = 0; guard < 8; guard++) {
       t = Math.random();
@@ -397,15 +428,44 @@ const NIGHT_C = {
     scene.add(tree);
   }
 
+  // Conifères (sapins) : variété d'essences pour un paysage plus réel
+  for (let i = 0; i < rb(14); i++) {
+    let t = Math.random();
+    for (let guard = 0; guard < 8; guard++) {
+      t = Math.random();
+      if (!panelT.some((tp) => Math.abs(tp - t) < 0.02)) break;
+    }
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = Math.random() > 0.5 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * (10 + Math.random() * 9)));
+    const con = buildConifer(pos, 0.9 + Math.random() * 0.9);
+    trees.push({ g: con, phase: Math.random() * Math.PI * 2 });
+    scene.add(con);
+  }
+
+  // Bancs supplémentaires, jamais devant un panneau de leçon
+  for (let i = 0; i < rb(7); i++) {
+    const bt = 0.05 + Math.random() * 0.9;
+    if (panelT.some((tp) => Math.abs(tp - bt) < 0.015)) continue;
+    const p = curve.getPointAt(bt);
+    const tg = curve.getTangentAt(bt);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * (5.1 + Math.random() * 0.5)));
+    scene.add(buildBench(pos, side));
+  }
+
   // ---------------- Pigeons (qui picorent sur le trottoir) ----------------
   const pigeons = [];
-  for (let i = 0; i < rb(9); i++) {
+  for (let i = 0; i < rb(12); i++) {
     const t = 0.04 + Math.random() * 0.92;
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
     const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
     const side = Math.random() > 0.5 ? 1 : -1;
-    const pos = p.clone().add(perp.clone().multiplyScalar(side * (3.1 + Math.random() * 1.8)));
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * (3.1 + Math.random() * 0.9)));
     const pg = buildPigeon();
     pg.position.set(pos.x, 0, pos.z);
     pigeons.push({ g: pg, phase: Math.random() * Math.PI * 2, x0: pos.x, z0: pos.z });
@@ -439,7 +499,7 @@ const NIGHT_C = {
   });
 
   // ---------------- Café tables (bistrot avec parasol) ----------------
-  const cafeT = isMobile ? [0.19, 0.85] : [0.19, 0.52, 0.85];
+  const cafeT = isMobile ? [0.19, 0.85] : [0.12, 0.28, 0.45, 0.6, 0.76, 0.9];
   cafeT.forEach((t, i) => {
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -454,7 +514,7 @@ const NIGHT_C = {
   });
 
   // ---------------- Bicycles (vélos stationnés près des bancs) ----------------
-  for (let i = 0; i < rb(5); i++) {
+  for (let i = 0; i < rb(8); i++) {
     const t = 0.06 + Math.random() * 0.88;
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -485,7 +545,7 @@ const NIGHT_C = {
     { color: 0x8a9ab8, label: "LIBRAIRIE" },
     { color: 0xcfa574, label: "CAFÉ DU PARC" },
   ];
-  const shopT = isMobile ? [0.15, 0.7] : [0.15, 0.38, 0.6, 0.84];
+  const shopT = isMobile ? [0.15, 0.42, 0.72] : [0.15, 0.38, 0.6, 0.84];
   shopT.forEach((t, i) => {
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -590,9 +650,148 @@ const NIGHT_C = {
     scene.add(balloons);
   }
 
+  // ---------------- Enrichissement urbain : feux, bornes, sucettes, stationnement ----------------
+  const midOf = (a, b) => 0.5 * (panelT[a] + panelT[b]);
+
+  // Feux tricolores + feux piétons aux trois passages piétons
+  for (const lt of [0.22, 0.58, 0.86]) {
+    const p = curve.getPointAt(lt);
+    const tg = curve.getTangentAt(lt);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = Math.random() > 0.5 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * 2.9));
+    const dir = new THREE.Vector3().subVectors(p, pos).normalize();
+    scene.add(buildTrafficLight(pos, Math.atan2(dir.x, dir.z)));
+  }
+
+  // Bornes anti-stationnement le long des trottoirs
+  const bornes = isMobile ? 4 : 8;
+  for (let i = 0; i < bornes; i++) {
+    const t = 0.05 + (i / bornes) * 0.9;
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? 1 : -1;
+    scene.add(buildBollard(p.clone().add(perp.clone().multiplyScalar(side * 2.6))));
+  }
+
+  // Bouches d'incendie et boîtes aux lettres
+  const hydrantCount = isMobile ? 1 : 3;
+  for (let i = 0; i < hydrantCount; i++) {
+    const t = 0.14 + (i / hydrantCount) * 0.6;
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? 1 : -1;
+    scene.add(buildHydrant(p.clone().add(perp.clone().multiplyScalar(side * 2.85))));
+  }
+  const mailboxCount = isMobile ? 1 : 2;
+  for (let i = 0; i < mailboxCount; i++) {
+    const t = 0.24 + i * 0.3;
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? -1 : 1;
+    scene.add(buildMailbox(p.clone().add(perp.clone().multiplyScalar(side * 2.95))));
+  }
+
+  // Sucettes publicitaires (affichage libre-service, thème panneautique)
+  const sucetteT = isMobile ? [0.32, 0.74] : [0.08, 0.32, 0.55, 0.78];
+  sucetteT.forEach((t, i) => {
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * 6.9));
+    const lines = i % 2 === 0 ? ["ESPACE", "PUBLICITAIRE"] : ["MOBILIER", "URBAIN"];
+    scene.add(buildSucette(pos, Math.atan2(perp.x, perp.z) + (side > 0 ? 0 : Math.PI), lines));
+    scene.add(buildContactShadow(pos, 1.6, 2.2));
+  });
+
+  // Arbres en bac le long du trottoir (toujours à mi-chemin des panneaux : jamais devant)
+  const planterT = isMobile ? [midOf(1, 2), midOf(8, 9)] : [midOf(1, 2), midOf(3, 4), midOf(6, 7), midOf(9, 10)];
+  planterT.forEach((t, i) => {
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * 4.55));
+    scene.add(buildPlanterTree(pos, 0.9 + (i % 3) * 0.15));
+  });
+
+  // Voitures stationnées le long de la chaussée (à mi-chemin des panneaux), les deux côtés
+  const parkedT = isMobile ? [midOf(7, 8)] : [midOf(1, 2), midOf(3, 4), midOf(5, 6), midOf(7, 8), midOf(9, 10), midOf(11, 12)];
+  parkedT.forEach((t, i) => {
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? 1 : -1;
+    const car = buildCar();
+    car.cone.material.opacity = 0;
+    car.group.position.set(p.x + perp.x * side * 1.7, 0, p.z + perp.z * side * 1.7);
+    car.group.rotation.y = Math.atan2(tg.x, tg.z);
+    scene.add(car.group);
+  });
+
+  // Poteaux électriques + fils qui traversent la rue (réalisme urbain)
+  for (const wt of [0.13, 0.45, 0.75]) {
+    const p = curve.getPointAt(wt);
+    const tg = curve.getTangentAt(wt);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const a = p.clone().add(perp.clone().multiplyScalar(4.9));
+    const b = p.clone().add(perp.clone().multiplyScalar(-4.9));
+    scene.add(buildUtilityPole(a));
+    scene.add(buildUtilityPole(b));
+    a.y = 6.35; b.y = 6.35;
+    scene.add(buildWire(a, b, 0.55));
+    scene.add(buildWire(a.clone().add(new THREE.Vector3(0.14, -0.22, 0)), b.clone().add(new THREE.Vector3(-0.14, -0.22, 0)), 0.45));
+  }
+
+  // Regards en fonte et grilles d'évacuation sur le bitume (détails réalistes)
+  // Bandes de roulement (±0,6) : libres de tout marquage (double ligne à ±1,25, rive à ±1,85)
+  for (const [mt, moff, mkind] of [[0.1, 0.6, 0], [0.33, -0.6, 0], [0.49, 0.6, 1], [0.65, -0.6, 0], [0.8, 0.6, 1], [0.93, -0.6, 0]]) {
+    const p = curve.getPointAt(mt);
+    const tg = curve.getTangentAt(mt);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    scene.add(buildManhole(p.clone().add(perp.clone().multiplyScalar(moff)), mkind, Math.atan2(tg.x, tg.z)));
+  }
+  // Grilles d'évacuation sur les trottoirs
+  for (const gt of [0.31, 0.71]) {
+    const p = curve.getPointAt(gt);
+    const tg = curve.getTangentAt(gt);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = Math.random() > 0.5 ? 1 : -1;
+    scene.add(buildManhole(p.clone().add(perp.clone().multiplyScalar(side * 3.1)), 1, Math.atan2(tg.x, tg.z)));
+  }
+
+  // Cônes de chantier près du passage piéton
+  {
+    const t = 0.24;
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    [1.6, 2.0, -1.6].forEach((o, k) => {
+      const pos = p.clone().add(perp.clone().multiplyScalar(o)).add(tg.clone().multiplyScalar(k === 2 ? -0.5 : 0.6));
+      scene.add(buildTrafficCone(pos));
+    });
+  }
+
+  // Second étal de marché (fleurs & fruits) à l'opposé de la fontaine
+  {
+    const t = 0.82;
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const pos = p.clone().add(perp.clone().multiplyScalar(11.6));
+    const stall2 = buildMarketStall(pos, Math.atan2(-perp.x, -perp.z), 0x8faa7d);
+    marketStalls.push(stall2);
+    scene.add(stall2);
+    scene.add(buildContactShadow(pos, 2.6, 1.4));
+  }
+
   // ---------------- Passants animés (marchent le long des trottoirs) ----------------
   const walkers = [];
-  const WALKER_COUNT = isMobile ? 7 : 14;
+  const WALKER_COUNT = isMobile ? 10 : 20;
   const KID_COUNT = isMobile ? 1 : 3;
   for (let i = 0; i < WALKER_COUNT; i++) {
     const isKid = i < KID_COUNT;
@@ -607,14 +806,14 @@ const NIGHT_C = {
       lean: person.lean,
       t: 0.02 + Math.random() * 0.96,
       speed: (isKid ? 0.009 : 0.004 + Math.random() * 0.005) * dir,
-      side, off: 3.0 + Math.random() * 1.3, phase: person.phase,
+      side, off: 3.0 + Math.random() * 0.9, phase: person.phase,
       step: 0,
     });
     scene.add(person.g);
   }
 
   // ---------------- Chiens qui trottinent sur le trottoir ----------------
-  for (let i = 0; i < (isMobile ? 1 : 2); i++) {
+  for (let i = 0; i < (isMobile ? 1 : 3); i++) {
     const dog = buildDog();
     const dir = Math.random() > 0.5 ? 1 : -1;
     const side = Math.random() > 0.5 ? 1 : -1;
@@ -628,7 +827,7 @@ const NIGHT_C = {
   }
 
   // ---------------- Dunes & rocks ----------------
-  for (let i = 0; i < rb(34); i++) {
+  for (let i = 0; i < rb(38); i++) {
     const t = Math.random();
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -641,7 +840,7 @@ const NIGHT_C = {
 
   // ---------------- Palms & bushes ----------------
   const palms = [];
-  for (let i = 0; i < rb(26); i++) {
+  for (let i = 0; i < rb(30); i++) {
     const t = Math.random();
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -652,8 +851,13 @@ const NIGHT_C = {
     palms.push({ g: palm, phase: Math.random() * Math.PI * 2 });
     scene.add(palm);
   }
-  for (let i = 0; i < rb(60); i++) {
-    const t = Math.random();
+  for (let i = 0; i < rb(66); i++) {
+    let t = Math.random();
+    // Jamais devant un panneau de leçon (ils sont reculés à ~7,4 m)
+    for (let guard = 0; guard < 8; guard++) {
+      t = Math.random();
+      if (!panelT.some((tp) => Math.abs(tp - t) < 0.012)) break;
+    }
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
     const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
@@ -668,7 +872,7 @@ const NIGHT_C = {
 
   // ---------------- Clouds (drifting) ----------------
   const clouds = [];
-  for (let i = 0; i < rb(12); i++) {
+  for (let i = 0; i < rb(17); i++) {
     const cld = buildCloud(
       new THREE.Vector3((Math.random() - 0.5) * 130, 30 + Math.random() * 20, Math.random() * 440),
       1.4 + Math.random() * 2.6
@@ -700,7 +904,7 @@ const NIGHT_C = {
 
   // ---------------- Feuilles portées par le vent (animation ambiante) ----------------
   const leaves = [];
-  for (let i = 0; i < rb(26); i++) {
+  for (let i = 0; i < rb(30); i++) {
     const leaf = buildLeaf();
     const lt = Math.random();
     const lp = curve.getPointAt(lt);
@@ -724,7 +928,7 @@ const NIGHT_C = {
 
   // ---------------- Birds ----------------
   const birds = [];
-  for (let i = 0; i < rb(8); i++) {
+  for (let i = 0; i < rb(9); i++) {
     const bird = buildBird();
     bird.g.position.set(-60 + Math.random() * 120, 9 + Math.random() * 8, 40 + Math.random() * 120);
     birds.push({
@@ -800,7 +1004,8 @@ const NIGHT_C = {
     const sway = Math.sin(time * 0.25) * 0.18;
     camTarget.set(p.x + tmpPerp.x * sway, p.y + 3.45 + bob, p.z + tmpPerp.z * sway);
 
-    // Frame the approaching panel: look at the panel ~1 station ahead of the camera
+    // Cadrage doux du prochain panneau : on le voit bien à distance, mais le regard
+    // se recentre sur la route à l'approche (le scroll ne « rentre » jamais dans le panneau).
     camLook.set(look.x, look.y + 2.7, look.z);
     {
       let frameIdx = 0;
@@ -811,11 +1016,20 @@ const NIGHT_C = {
         const d = Math.abs(tp - lookLead);
         if (d < best) { best = d; frameIdx = i; }
       }
-      const w = THREE.MathUtils.clamp(1 - best / 0.08, 0, 1);
+      const w = THREE.MathUtils.clamp(1 - best / 0.06, 0, 1);
       if (w > 0) {
         const pp = panels[frameIdx].group.position;
-        const sw = w * w * (3 - 2 * w);
-        camLook.lerp(new THREE.Vector3(pp.x, pp.y + 2.8, pp.z), sw * 0.85);
+        const relX = pp.x - camera.position.x;
+        const relZ = pp.z - camera.position.z;
+        // Ne cadre que les panneaux encore devant la caméra (jamais ceux déjà dépassés)
+        const inFront = relX * tg.x + relZ * tg.z > 0;
+        // Relâche progressivement à l'approche : regard recentré sur la route
+        const distP = Math.hypot(relX, relZ);
+        const release = THREE.MathUtils.clamp((distP - 9) / 10, 0, 1);
+        const sw = w * w * (3 - 2 * w) * (inFront ? 1 : 0) * release;
+        if (sw > 0) {
+          camLook.lerp(new THREE.Vector3(pp.x, pp.y + 2.8, pp.z), sw * 0.30);
+        }
       }
     }
 
@@ -842,9 +1056,10 @@ const NIGHT_C = {
       const isActive = i === activeIndex;
       const hovered = i === hoverIndex;
       const near = Math.abs(progress - (0.02 + ((i + 0.5) / N) * 0.94)) < 0.06;
-      const targetScale = isActive ? 1.0 : hovered ? 1.09 : 0.86;
+      // Panneaux légèrement plus compacts et reculés : présents mais jamais envahissants
+      const targetScale = isActive ? 0.96 : hovered ? 1.04 : 0.78;
       // En plein jour, les faces sont mates : aucune émission pour éviter le reflet
-      const targetLight = hovered ? 0.22 : isActive ? 0.15 : near ? 0.05 : 0;
+      const targetLight = hovered ? 0.18 : isActive ? 0.12 : near ? 0.04 : 0;
       const lerpRate = hovered ? 0.12 : 0.08;
       pl.group.scale.setScalar(THREE.MathUtils.lerp(pl.group.scale.x, targetScale, lerpRate));
       if (pl.light) {
@@ -855,13 +1070,18 @@ const NIGHT_C = {
       pl.beaconMat.emissiveIntensity = (0.22 + Math.sin(time * 2.4 + i) * 0.1) * (1 - n) + (1.3 + Math.sin(time * 2.4 + i) * 0.3) * n;
       pl.frontMat.emissiveIntensity = THREE.MathUtils.lerp(pl.frontMat.emissiveIntensity, n * 0.3, 0.06);
 
-      // Face the camera when close so panels are always "bien droit" on arrival
+      // Le panneau se tourne vers la caméra à l'approche, puis revient vers la route
+      // une fois dépassé (plus d'impression de « rentrer » dans le panneau).
       const dx = camera.position.x - pl.group.position.x;
       const dz = camera.position.z - pl.group.position.z;
       const dist = Math.hypot(dx, dz);
-      const faceW = THREE.MathUtils.clamp(1 - dist / 34, 0, 1);
-      const targetRot = Math.atan2(dx, dz);
-      pl.group.rotation.y = THREE.MathUtils.lerp(pl.group.rotation.y, targetRot, faceW * 0.16);
+      const inFront = dx * tg.x + dz * tg.z < 0;
+      const faceW = THREE.MathUtils.clamp(1 - dist / 32, 0, 1) * (inFront ? 1 : 0);
+      const targetRot = inFront ? Math.atan2(dx, dz) : pl.restRot;
+      // Taux nul à distance (les panneaux lointains ne suivent pas la caméra) ;
+      // retour doux vers la route une fois dépassé.
+      const rate = inFront ? faceW * 0.14 : 0.02;
+      pl.group.rotation.y = THREE.MathUtils.lerp(pl.group.rotation.y, targetRot, rate);
     });
 
     for (const c of traffic) {

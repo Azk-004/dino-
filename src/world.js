@@ -16,8 +16,6 @@ export const PAL = {
   sun: 0xe9b96b,
   ground: 0xd5c193,
   groundDark: 0xc3ab7c,
-  path: 0xc0a677,
-  pathEdge: 0xd3ba8b,
   walnut: 0x5a4a36,
   walnutDark: 0x42352a,
   bronze: 0x9a8157,
@@ -27,6 +25,10 @@ export const PAL = {
   amber: 0xcfa574,
   city: 0xd8c9a6,
   hill: 0xc6b893,
+  // Route en vrai bitume : blanc pur = laisse la texture d'asphalte s'exprimer
+  path: 0xffffff,
+  // Lignes de rive : blanc cassé chaud
+  pathEdge: 0xf0ece0,
 };
 
 export function radialTexture(inner, color) {
@@ -68,13 +70,21 @@ export function groundTexture() {
   const ctx = c.getContext("2d");
   ctx.fillStyle = "#cdb98c";
   ctx.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 2600; i++) {
+  // Variations tonales douces à grande échelle (le sol n'est pas une plage de bruit)
+  for (let i = 0; i < 26; i++) {
+    const l = 172 + Math.random() * 34;
+    ctx.fillStyle = `rgba(${l | 0},${(l * 0.93) | 0},${(l * 0.74) | 0},${(0.05 + Math.random() * 0.1).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.ellipse(Math.random() * 256, Math.random() * 256, 14 + Math.random() * 30, 10 + Math.random() * 22, Math.random() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (let i = 0; i < 2200; i++) {
     const l = 168 + Math.random() * 42;
-    ctx.fillStyle = `rgba(${l | 0},${(l * 0.92) | 0},${(l * 0.72) | 0},${(Math.random() * 0.2).toFixed(3)})`;
+    ctx.fillStyle = `rgba(${l | 0},${(l * 0.92) | 0},${(l * 0.72) | 0},${(Math.random() * 0.16).toFixed(3)})`;
     ctx.fillRect(Math.random() * 256, Math.random() * 256, 2 + Math.random() * 4, 2 + Math.random() * 4);
   }
-  for (let i = 0; i < 150; i++) {
-    ctx.fillStyle = "rgba(110,86,52," + (0.14 + Math.random() * 0.26).toFixed(3) + ")";
+  for (let i = 0; i < 120; i++) {
+    ctx.fillStyle = "rgba(110,86,52," + (0.12 + Math.random() * 0.2).toFixed(3) + ")";
     ctx.beginPath();
     ctx.arc(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 2, 0, Math.PI * 2);
     ctx.fill();
@@ -88,26 +98,36 @@ export function groundTexture() {
 }
 
 export function asphaltTexture() {
+  // Bitume noir assorti au thème : gris charbon chaud, granulat fin, bandes de roulement et usure
   const c = document.createElement("canvas");
   c.width = 256;
   c.height = 256;
   const ctx = c.getContext("2d");
-  ctx.fillStyle = "#c2a878";
+  ctx.fillStyle = "#212429";
   ctx.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 3200; i++) {
-    ctx.fillStyle = `rgba(90,68,40,${(Math.random() * 0.16).toFixed(3)})`;
-    ctx.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 3, 1 + Math.random() * 3);
-  }
-  for (let i = 0; i < 500; i++) {
-    ctx.fillStyle = `rgba(255,252,244,${(Math.random() * 0.12).toFixed(3)})`;
+  // Granulat sombre (pierre fine)
+  for (let i = 0; i < 4600; i++) {
+    const l = 26 + Math.random() * 40;
+    ctx.fillStyle = `rgba(${l | 0},${(l * 0.98) | 0},${(l * 1.04) | 0},${(Math.random() * 0.28).toFixed(3)})`;
     ctx.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 2, 1 + Math.random() * 2);
   }
-  const g = ctx.createLinearGradient(112, 0, 144, 256);
-  g.addColorStop(0, "rgba(255,255,255,0)");
-  g.addColorStop(0.5, "rgba(255,255,255,0.07)");
-  g.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 256);
+  // Micro-points clairs discrets (usure du revêtement)
+  for (let i = 0; i < 700; i++) {
+    ctx.fillStyle = `rgba(118,124,134,${(Math.random() * 0.1).toFixed(3)})`;
+    ctx.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 2, 1 + Math.random() * 2);
+  }
+  // Bandes de roulement plus sombres (traces de pneus), une par voie
+  for (const bx of [42, 178]) {
+    const g = ctx.createLinearGradient(bx, 0, bx + 34, 256);
+    g.addColorStop(0, "rgba(8,10,12,0)");
+    g.addColorStop(0.5, "rgba(8,10,12,0.5)");
+    g.addColorStop(1, "rgba(8,10,12,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(bx, 0, 34, 256);
+  }
+  // Joint de revêtement au centre
+  ctx.fillStyle = "rgba(6,8,11,0.38)";
+  ctx.fillRect(127, 0, 2, 256);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
@@ -116,7 +136,7 @@ export function asphaltTexture() {
   return tex;
 }
 
-export function buildRibbon(curve, width, color, tex, samples = 500) {
+export function buildRibbon(curve, width, color, tex, samples = 500, basic = false) {
   const pts = curve.getSpacedPoints(samples);
   const positions = new Float32Array((samples + 1) * 6);
   const uvs = new Float32Array((samples + 1) * 4);
@@ -148,9 +168,13 @@ export function buildRibbon(curve, width, color, tex, samples = 500) {
   geo.setIndex(new THREE.BufferAttribute(indices, 1));
   geo.computeVertexNormals();
 
+  // DoubleSide : le winding des triangles est inversé (faces vers le bas) — sans ça,
+  // la route / les trottoirs / les lignes étaient invisibles vus d'en haut (sol nu beige).
   const mesh = new THREE.Mesh(
     geo,
-    new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0.02, map: tex || null })
+    basic
+      ? new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide })
+      : new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.02, map: tex || null, side: THREE.DoubleSide })
   );
   mesh.receiveShadow = true;
   return mesh;
@@ -161,9 +185,11 @@ export function buildPanel(st, curve, t, side, index) {
   const p = curve.getPointAt(t);
   const tg = curve.getTangentAt(t);
   const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
-  const lateral = perp.clone().multiplyScalar(side * 5.4);
+  // Espacement régulier le long de la route : panneaux bien décalés sur le côté
+  // (hors de la chaussée et du trottoir) — l'animation et la route restent au centre.
+  const lateral = perp.clone().multiplyScalar(side * 7.4);
   const zJitter = (index % 3) - 1;
-  group.position.set(p.x + lateral.x + zJitter * 0.9, 0, p.z + lateral.z + zJitter * 0.9);
+  group.position.set(p.x + lateral.x + zJitter * 0.5, 0, p.z + lateral.z + zJitter * 0.5);
 
   const approach = curve.getPointAt(Math.max(0, t - 0.035));
   const dir = new THREE.Vector3().subVectors(approach, group.position).normalize();
@@ -274,7 +300,7 @@ export function buildPanel(st, curve, t, side, index) {
   beacon.position.set(0, 5.52, 0);
   group.add(beacon);
 
-  return { group, frontMat, light, beaconMat, front };
+  return { group, frontMat, light, beaconMat, front, restRot };
 }
 
 function drawPanelCanvas(ctx, st, index, cw = 1024, ch = 768) {
@@ -1637,8 +1663,8 @@ export function buildBus() {
 export function buildDog() {
   // Chien stylisé (queue animable)
   const g = new THREE.Group();
-  const fur = new THREE.MeshLambertMaterial({ color: 0xb98a5e, roughness: 0.9 });
-  const furDark = new THREE.MeshLambertMaterial({ color: 0x8a6240, roughness: 0.9 });
+  const fur = new THREE.MeshLambertMaterial({ color: 0xb98a5e });
+  const furDark = new THREE.MeshLambertMaterial({ color: 0x8a6240 });
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.22, 0.55), fur);
   body.position.y = 0.24;
   body.castShadow = true;
@@ -1684,5 +1710,334 @@ export function buildBalloons(pos) {
     balloons.push(b);
   }
   g.userData = { balloons };
+  return g;
+}
+
+export function buildTrafficLight(pos, angle = 0) {
+  // Feu tricolore urbain avec feu piéton, posé au bord des passages piétons
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  g.rotation.y = angle;
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x2e2a26, roughness: 0.5, metalness: 0.5 });
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.07, 3.4, 8), poleMat);
+  pole.position.y = 1.7;
+  pole.castShadow = true;
+  g.add(pole);
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.6, metalness: 0.3 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.9, 0.26), bodyMat);
+  body.position.y = 2.9;
+  g.add(body);
+  const specs = [
+    { c: 0xc94f42, y: 3.24, on: 0.9 },
+    { c: 0xe0a83a, y: 2.9, on: 0.2 },
+    { c: 0x5f9c58, y: 2.56, on: 0.2 },
+  ];
+  specs.forEach((s) => {
+    const bulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.095, 10, 8),
+      new THREE.MeshStandardMaterial({ color: 0x1a1c20, emissive: s.c, emissiveIntensity: s.on, roughness: 0.4 })
+    );
+    bulb.position.set(0, s.y, 0.14);
+    g.add(bulb);
+  });
+  // Feu piéton rouge/vert sous le feu principal
+  const pedBody = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.55, 0.14), bodyMat);
+  pedBody.position.set(0, 1.15, 0);
+  g.add(pedBody);
+  for (const [c, y] of [[0xc94f42, 1.32], [0x5f9c58, 1.05]]) {
+    const ped = new THREE.Mesh(
+      new THREE.SphereGeometry(0.05, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0x1a1c20, emissive: c, emissiveIntensity: 0.7, roughness: 0.4 })
+    );
+    ped.position.set(0, y, 0.08);
+    g.add(ped);
+  }
+  return g;
+}
+
+export function buildBollard(pos) {
+  // Borne urbaine anti-stationnement (crème, lisible sur bitume et trottoir)
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xe3d9ba, roughness: 0.7, metalness: 0.2 });
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.5, 8), mat);
+  b.position.y = 0.25;
+  b.castShadow = true;
+  g.add(b);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), mat);
+  cap.position.y = 0.51;
+  g.add(cap);
+  return g;
+}
+
+export function buildHydrant(pos) {
+  // Bouche d'incendie rouge classique
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  const red = new THREE.MeshStandardMaterial({ color: 0xb5503c, roughness: 0.6, metalness: 0.35 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.52, 10), red);
+  body.position.y = 0.26;
+  body.castShadow = true;
+  g.add(body);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), red);
+  cap.position.y = 0.55;
+  g.add(cap);
+  for (const a of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+    const nub = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.07, 8), red);
+    nub.position.set(Math.cos(a) * 0.13, 0.38, Math.sin(a) * 0.13);
+    nub.rotation.z = Math.PI / 2;
+    nub.rotation.y = a;
+    g.add(nub);
+  }
+  return g;
+}
+
+export function buildMailbox(pos) {
+  // Boîte aux lettres urbaine
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  const blue = new THREE.MeshStandardMaterial({ color: 0x6a7d94, roughness: 0.6, metalness: 0.4 });
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 1.15, 8), blue);
+  pole.position.y = 0.58;
+  pole.castShadow = true;
+  g.add(pole);
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.42, 0.17), blue);
+  box.position.y = 1.02;
+  box.castShadow = true;
+  g.add(box);
+  const slot = new THREE.Mesh(
+    new THREE.BoxGeometry(0.22, 0.045, 0.02),
+    new THREE.MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.7 })
+  );
+  slot.position.set(0, 1.2, 0.095);
+  g.add(slot);
+  return g;
+}
+
+export function buildSucette(pos, angle = 0, lines = ["ESPACE", "PUBLICITAIRE"]) {
+  // Sucette publicitaire (affichage libre-service), thème panneautique
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  g.rotation.y = angle;
+  const iron = new THREE.MeshStandardMaterial({ color: 0x3a332b, roughness: 0.55, metalness: 0.5 });
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.1, 10), iron);
+  base.position.y = 0.05;
+  g.add(base);
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.0, 8), iron);
+  post.position.y = 0.6;
+  post.castShadow = true;
+  g.add(post);
+  const sw = 256, sh = 384;
+  const c = document.createElement("canvas");
+  c.width = sw; c.height = sh;
+  const ctx = c.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, 0, sh);
+  grad.addColorStop(0, "#fbf4e0");
+  grad.addColorStop(1, "#efdfba");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, sw, sh);
+  ctx.strokeStyle = "rgba(138,111,69,0.55)";
+  ctx.lineWidth = 10;
+  ctx.strokeRect(10, 10, sw - 20, sh - 20);
+  ctx.fillStyle = "#c08a68";
+  ctx.fillRect(0, 0, sw, 36);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#3a2e1f";
+  ctx.font = "700 42px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  lines.forEach((ln, i) => ctx.fillText(ln, sw / 2, 168 + i * 58));
+  ctx.fillStyle = "#8a6a4e";
+  ctx.font = "400 22px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  ctx.fillText("DOMAINE PUBLIC", sw / 2, sh - 34);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = LOW ? 2 : 8;
+  const mat = new THREE.MeshLambertMaterial({ map: tex });
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 2.0), mat);
+  front.position.set(0, 1.95, 0.02);
+  g.add(front);
+  const back = front.clone();
+  back.position.z = -0.02;
+  back.rotation.y = Math.PI;
+  g.add(back);
+  return g;
+}
+
+export function buildPlanterTree(pos, scale = 1) {
+  // Arbre en bac de pierre, alignement de rue soigné
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  g.scale.setScalar(scale);
+  const stone = new THREE.MeshStandardMaterial({ color: 0xb7a47e, roughness: 0.9 });
+  const planter = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.48, 1.0), stone);
+  planter.position.y = 0.24;
+  planter.castShadow = true;
+  g.add(planter);
+  const rim = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.08, 1.08), stone);
+  rim.position.y = 0.48;
+  g.add(rim);
+  const soil = new THREE.Mesh(
+    new THREE.BoxGeometry(0.92, 0.06, 0.92),
+    new THREE.MeshStandardMaterial({ color: 0x42352a, roughness: 1 })
+  );
+  soil.position.y = 0.51;
+  g.add(soil);
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2c, roughness: 0.95, flatShading: true });
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 2.2, 7), trunkMat);
+  trunk.position.y = 1.55;
+  trunk.castShadow = true;
+  g.add(trunk);
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x55703f, roughness: 1, flatShading: true });
+  for (let i = 0; i < 3; i++) {
+    const canopy = new THREE.Mesh(new THREE.SphereGeometry(1.0 - i * 0.16, 8, 6), leafMat);
+    canopy.position.set((Math.random() - 0.5) * 0.4, 2.55 + i * 0.55, (Math.random() - 0.5) * 0.4);
+    canopy.scale.y = 0.85;
+    canopy.castShadow = true;
+    g.add(canopy);
+  }
+  return g;
+}
+
+export function buildLaneArrow(pos, angle = 0) {
+  // Flèche directionnelle peinte sur le bitume (pointes vers +Z, tournée par l'appelant)
+  const geo = new THREE.BufferGeometry();
+  const v = new Float32Array([
+    0, -1.0, 0, -0.55, -0.35, 0, 0.55, -0.35, 0,
+    0, -1.0, 0, 0.55, -0.35, 0, 0.26, 0.9, 0,
+    0, -1.0, 0, 0.26, 0.9, 0, -0.26, 0.9, 0,
+    0, -1.0, 0, -0.26, 0.9, 0, -0.55, -0.35, 0,
+  ]);
+  geo.setAttribute("position", new THREE.BufferAttribute(v, 3));
+  geo.computeVertexNormals();
+  const inner = new THREE.Mesh(
+    geo,
+    new THREE.MeshBasicMaterial({ color: 0xf0ece0, side: THREE.DoubleSide })
+  );
+  inner.rotation.x = -Math.PI / 2;
+  const g = new THREE.Group();
+  g.add(inner);
+  g.rotation.y = angle;
+  g.position.set(pos.x, 0.05, pos.z);
+  return g;
+}
+
+export function buildConifer(pos, scale = 1) {
+  // Sapin / conifère : tronc + étages de cônes (variété d'essences dans le paysage)
+  const g = new THREE.Group();
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3d24, roughness: 0.95, flatShading: true });
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.14, 1.3, 7), trunkMat);
+  trunk.position.y = 0.65;
+  trunk.castShadow = true;
+  g.add(trunk);
+  const needleMat = new THREE.MeshStandardMaterial({ color: 0x3f5a36, roughness: 1, flatShading: true });
+  const tiers = 4;
+  for (let i = 0; i < tiers; i++) {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.05 - i * 0.18, 0.85, 8), needleMat);
+    cone.position.y = 1.1 + i * 0.62;
+    cone.castShadow = true;
+    g.add(cone);
+  }
+  const top = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.42, 6), needleMat);
+  top.position.y = 3.7;
+  g.add(top);
+  g.position.copy(pos);
+  g.scale.setScalar(scale);
+  return g;
+}
+
+export function buildManhole(pos, kind = 0, rot = 0) {
+  // Détail de chaussée : regard en fonte (0) ou grille d'évacuation (1)
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  g.rotation.y = rot;
+  if (kind === 0) {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x3c3f44, roughness: 0.85, metalness: 0.35 });
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.05, 20), mat);
+    disc.position.y = 0.06;
+    g.add(disc);
+    const inner = new THREE.Mesh(
+      new THREE.CircleGeometry(0.3, 20),
+      new THREE.MeshStandardMaterial({ color: 0x2c2e33, roughness: 0.9 })
+    );
+    inner.rotation.x = -Math.PI / 2;
+    inner.position.y = 0.09;
+    g.add(inner);
+    for (let i = 0; i < 3; i++) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.02, 0.035), mat);
+      bar.position.set(0, 0.105, -0.2 + i * 0.2);
+      g.add(bar);
+    }
+  } else {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x2f3236, roughness: 0.8, metalness: 0.4 });
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.04, 0.5), mat);
+    frame.position.y = 0.06;
+    g.add(frame);
+    for (let i = 0; i < 5; i++) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.03, 0.05), mat);
+      bar.position.set(0, 0.075, -0.17 + i * 0.085);
+      g.add(bar);
+    }
+  }
+  return g;
+}
+
+export function buildUtilityPole(pos) {
+  // Poteau électrique en bois avec traverse et isolateurs
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  const wood = new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 0.9, flatShading: true });
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 7.2, 8), wood);
+  pole.position.y = 3.6;
+  pole.castShadow = true;
+  g.add(pole);
+  const crossarm = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.09, 0.09), wood);
+  crossarm.position.y = 6.3;
+  g.add(crossarm);
+  const isoMat = new THREE.MeshStandardMaterial({ color: 0x8a9a6a, roughness: 0.6, metalness: 0.2 });
+  for (const x of [-1.15, 1.15]) {
+    const iso = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.14, 6), isoMat);
+    iso.position.set(x, 6.4, 0);
+    g.add(iso);
+  }
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 6), wood);
+  cap.position.y = 7.32;
+  g.add(cap);
+  return g;
+}
+
+export function buildWire(a, b, sag = 0.8) {
+  // Fil électrique entre deux poteaux : caténaire sombre et fine
+  const pts = [];
+  const n = 24;
+  for (let i = 0; i <= n; i++) {
+    const u = i / n;
+    pts.push(new THREE.Vector3(
+      a.x + (b.x - a.x) * u,
+      a.y + (b.y - a.y) * u + Math.sin(u * Math.PI) * -sag,
+      a.z + (b.z - a.z) * u
+    ));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  return new THREE.Mesh(
+    new THREE.TubeGeometry(curve, n, 0.015, 5, false),
+    new THREE.MeshBasicMaterial({ color: 0x2c2620 })
+  );
+}
+
+export function buildTrafficCone(pos) {
+  // Cône de chantier : base carrée, corps orange et bande réfléchissante
+  const g = new THREE.Group();
+  g.position.copy(pos);
+  const coneMat = new THREE.MeshStandardMaterial({ color: 0xd96a3d, roughness: 0.8 });
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.5, 10), coneMat);
+  body.position.y = 0.25;
+  body.castShadow = true;
+  g.add(body);
+  const bandMat = new THREE.MeshStandardMaterial({ color: 0xf2ece0, roughness: 0.7 });
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.115, 0.09, 10), bandMat);
+  band.position.y = 0.2;
+  g.add(band);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 0.3), coneMat);
+  base.position.y = 0.02;
+  g.add(base);
   return g;
 }
