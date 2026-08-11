@@ -24,6 +24,7 @@ export function initUI() {
     resultText: $("#quiz-result .result-text"),
     reader: $("#ui-reader"),
     readerPanel: $(".reader-panel"),
+    readerProg: $("#reader-progress-fill"),
     readerKicker: $("#ui-reader .reader-kicker"),
     readerTitle: $("#ui-reader .reader-title"),
     readerBody: $("#ui-reader .reader-body"),
@@ -53,6 +54,7 @@ export function initUI() {
   };
 
   let onReaderChange = null;
+  let onQuizChange = null;
   let toastTimer = null;
 
   function setProgress(ratio) {
@@ -76,6 +78,7 @@ export function initUI() {
     const isQuiz = st.id === "quiz";
     el.card.classList.toggle("show", !isQuiz && i !== -1);
     el.quiz.classList.toggle("show", isQuiz);
+    if (onQuizChange) onQuizChange(isQuiz);
 
     if (!isQuiz) {
       el.cardKicker.textContent = st.kicker;
@@ -134,6 +137,7 @@ export function initUI() {
     el.readerCount.textContent = `${String(i + 1).padStart(2, "0")} / ${String(STATIONS.length).padStart(2, "0")}`;
     // Chaque leçon s'ouvre en haut de son contenu (après remplissage)
     el.readerPanel.scrollTop = 0;
+    updateReaderProgress();
     el.title.classList.add("hide");
     el.reader.classList.add("show");
     if (onReaderChange) onReaderChange(true);
@@ -152,6 +156,14 @@ export function initUI() {
     if (ni !== state.readerIndex) openReader(ni);
   }
 
+  // Barre de progression de lecture : suit le défilement dans le panneau
+  function updateReaderProgress() {
+    if (!el.readerProg) return;
+    const max = el.readerPanel.scrollHeight - el.readerPanel.clientHeight;
+    el.readerProg.style.width = (max > 0 ? (el.readerPanel.scrollTop / max) * 100 : 100) + "%";
+  }
+  el.readerPanel.addEventListener("scroll", updateReaderProgress, { passive: true });
+
   el.readerClose.addEventListener("click", closeReader);
   el.readerPrev.addEventListener("click", () => readerNav(-1));
   el.readerNext.addEventListener("click", () => readerNav(1));
@@ -160,6 +172,21 @@ export function initUI() {
   });
   el.cardOpen.addEventListener("click", () => {
     if (state.activeIndex >= 0) openReader(state.activeIndex);
+  });
+
+  // ---------------- Questionnaire : boutons du résultat (attachés une seule fois) ----------------
+  document.querySelector("#quiz-retry").addEventListener("click", () => {
+    state.quizAnswered.clear();
+    state.score = 0;
+    document.querySelector("#quiz-score").textContent = 0;
+    el.quizFill.style.width = "0%";
+    el.quizResult.classList.add("hide");
+    renderQuiz(state, el);
+  });
+  document.querySelector("#quiz-restart").addEventListener("click", () => {
+    // Déverrouille la page avant de remonter au début du parcours
+    if (onQuizChange) onQuizChange(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
   // ---------------- Toast ----------------
@@ -213,6 +240,8 @@ export function initUI() {
     showToast, isReaderOpen: () => state.readerOpen,
     quizOpen, answerQuiz,
     setReaderListener: (fn) => { onReaderChange = fn; },
+    setQuizListener: (fn) => { onQuizChange = fn; },
+    setQuizShown: (v) => { if (onQuizChange) onQuizChange(v); },
   };
 }
 
@@ -275,17 +304,32 @@ function showResult(state, el) {
   const wrong = QUIZ.length - state.score;
   el.resultText.innerHTML = `Score : <strong>${state.score} / ${QUIZ.length}</strong> — ${msg}<br><span class="result-breakdown">${state.score} bonne${state.score > 1 ? "s" : ""} réponse${state.score > 1 ? "s" : ""} · ${wrong} à revoir</span>`;
   el.quizResult.classList.remove("hide");
+  if (pct >= 70) celebrate();
+}
 
-  document.querySelector("#quiz-retry").addEventListener("click", () => {
-    state.quizAnswered.clear();
-    state.score = 0;
-    document.querySelector("#quiz-score").textContent = 0;
-    el.quizFill.style.width = "0%";
-    el.quizResult.classList.add("hide");
-    renderQuiz(state, el);
-  });
-
-  document.querySelector("#quiz-restart").addEventListener("click", () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  });
+// Petite pluie de confettis aux couleurs du site quand la formation est validée
+const CONFETTI_COLORS = ["#c08a68", "#cfa574", "#9db87f", "#8a9ab8", "#d2a678", "#e0c9a0"];
+let confettiLayer = null;
+function celebrate() {
+  if (!confettiLayer) {
+    confettiLayer = document.createElement("div");
+    confettiLayer.id = "confetti-layer";
+    document.body.appendChild(confettiLayer);
+  }
+  const count = 110;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement("span");
+    p.className = "confetti-piece" + (Math.random() < 0.3 ? " circle" : "");
+    p.style.left = Math.random() * 100 + "vw";
+    p.style.background = CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0];
+    p.style.opacity = (0.55 + Math.random() * 0.45).toFixed(2);
+    const dur = 2.4 + Math.random() * 2.2;
+    const delay = Math.random() * 0.9;
+    p.style.animation = `confettiFall ${dur}s cubic-bezier(0.2, 0.6, 0.4, 1) ${delay}s forwards`;
+    confettiLayer.appendChild(p);
+    setTimeout(() => p.remove(), (dur + delay + 0.2) * 1000);
+  }
+  setTimeout(() => {
+    if (confettiLayer && !confettiLayer.childElementCount) confettiLayer.remove();
+  }, 6200);
 }
