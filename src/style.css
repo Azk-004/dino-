@@ -996,6 +996,224 @@ canvas.course-illus {
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
+/* ---------- Team corridor mode (L'équipe) ---------- */
+#ui-team {
+  position: fixed; inset: 0;
+  z-index: 70;
+  display: none;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 248, 228, 0.75), transparent 62%),
+    linear-gradient(180deg, #f0e2c4, #d9bf93);
+}
+body.mode-team #ui-team {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+body.mode-team #ui { display: none; }
+body.mode-team #scene { visibility: hidden; }
+/* Couloir ouvert : la page du parcours reste figée derrière */
+html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: none; }
+
+.team-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px;
+  padding: 18px 28px;
+  background: rgba(250, 243, 226, 0.82);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(138, 111, 69, 0.32);
+  box-shadow: 0 6px 24px rgba(140, 110, 75, 0.1);
+}
+.team-header-brand {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--bronze-2);
+}
+.team-count {
+  font-family: var(--serif);
+  font-size: 14px; letter-spacing: 0.22em; color: var(--bronze);
+  padding: 7px 18px;
+  border: 1px solid rgba(201, 143, 78, 0.42); border-radius: 999px;
+  background: rgba(253, 250, 242, 0.65);
+}
+.team-close {
+  font-family: var(--sans); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--bronze-2);
+  padding: 11px 20px;
+  background: rgba(253, 250, 242, 0.6);
+  border: 1px solid var(--line-soft); border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.team-close:hover { color: var(--ink); border-color: var(--amber); }
+
+#team-scroll {
+  position: relative;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+#team-scroll::-webkit-scrollbar { height: 8px; }
+#team-scroll::-webkit-scrollbar-thumb {
+  background: rgba(140, 112, 72, 0.35); border-radius: 8px;
+}
+#team-scroll::-webkit-scrollbar-track { background: transparent; }
+
+#team-corridor {
+  width: max-content;
+  min-width: 100%;
+  height: 100%;
+  display: flex; align-items: center;
+  perspective: 1100px;
+  transform-style: preserve-3d;
+}
+.team-track {
+  display: flex; align-items: center;
+  gap: clamp(30px, 6vw, 84px);
+  /* 50vw de marge de chaque côté : la première niche peut être centrée dans le
+     viewport (sinon le membre 01 reste collé au bord gauche du couloir). */
+  padding: 34px max(50vw, 260px);
+  transform-style: preserve-3d;
+}
+
+.team-cell {
+  position: relative;
+  width: clamp(240px, 27vw, 340px);
+  flex-shrink: 0;
+  transform-style: preserve-3d;
+  cursor: pointer;
+}
+.team-niche {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 200px 200px 20px 20px / 150px 150px 20px 20px;
+  background: linear-gradient(180deg, #f6edd8, #e2cc9c);
+  border: 1px solid rgba(122, 95, 56, 0.38);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 238, 0.65),
+    inset 0 -46px 90px rgba(122, 95, 56, 0.18),
+    0 34px 70px rgba(100, 74, 40, 0.28);
+}
+.team-arch {
+  position: absolute; inset: 12px;
+  border-radius: 180px 180px 16px 16px / 135px 135px 16px 16px;
+  border: 1px solid rgba(201, 143, 78, 0.5);
+  pointer-events: none;
+}
+.team-glow {
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(58% 44% at 50% 36%, rgba(255, 226, 165, 0.9), transparent 72%);
+  opacity: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+.team-portrait-wrap {
+  position: absolute; inset: 9% 10%;
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+.team-portrait {
+  width: 100%; height: 100%;
+  background-size: cover; background-position: center;
+  border-radius: 14px;
+  box-shadow: 0 20px 44px rgba(90, 66, 38, 0.35);
+  will-change: transform, filter;
+  transition: box-shadow 0.5s ease;
+}
+.team-info {
+  margin-top: 20px;
+  text-align: center;
+}
+.team-name {
+  font-family: var(--serif); font-weight: 600;
+  font-size: clamp(20px, 2vw, 27px); line-height: 1.25;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+  will-change: transform, opacity, filter;
+}
+.team-name .tl {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
+.team-role {
+  margin-top: 7px;
+  font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--bronze-2);
+  will-change: transform, opacity, letter-spacing;
+}
+.team-accent {
+  width: 130px; height: 3px; margin: 17px auto 0;
+  background: linear-gradient(90deg, var(--terracotta), var(--amber));
+  border-radius: 3px;
+  transform: scaleX(0);
+  box-shadow: 0 0 14px rgba(185, 106, 69, 0.5);
+  will-change: transform, filter;
+  position: relative;
+  overflow: hidden;
+}
+.team-accent::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 250, 235, 0.95), transparent);
+  transform: translateX(-100%);
+  animation: accent-shine 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes accent-shine {
+  0%, 55% { transform: translateX(-100%); }
+  85%, 100% { transform: translateX(100%); }
+}
+
+/* Halo central du couloir : un rai de lumière derrière la niche active */
+#ui-team::after {
+  content: "";
+  position: absolute; left: 50%; top: 0; bottom: 0;
+  width: min(72vw, 920px);
+  transform: translateX(-50%);
+  background: radial-gradient(50% 52% at 50% 40%, rgba(255, 244, 214, 0.5), transparent 72%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Niche : léger relief au survol (la chorégraphie pilote la cellule, pas la niche) */
+.team-niche {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease;
+}
+.team-cell:hover .team-niche {
+  transform: translateY(-9px) rotateX(2.5deg) scale(1.025);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 238, 0.75),
+    inset 0 -46px 90px rgba(122, 95, 56, 0.16),
+    0 40px 80px rgba(100, 74, 40, 0.32),
+    0 0 0 1px rgba(201, 143, 78, 0.5),
+    0 0 34px rgba(216, 168, 96, 0.4);
+}
+.team-niche::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(60% 46% at 50% 34%, rgba(255, 230, 175, 0.5), transparent 72%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+.team-cell:hover .team-niche::after { opacity: 1; }
+.team-cell:hover .team-portrait {
+  box-shadow: 0 24px 52px rgba(90, 66, 38, 0.42), 0 0 0 1px rgba(216, 168, 96, 0.35);
+}
+
+/* Sol du couloir + voile latéral (figés, pendant que les niches défilent) */
+#ui-team::before {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: 0; height: 30vh;
+  background: linear-gradient(180deg, transparent, rgba(110, 82, 44, 0.17));
+  pointer-events: none;
+  z-index: 0;
+}
+#team-scroll { z-index: 1; }
+
 /* ---------- Responsive ---------- */
 
 /* Tablette paysage — card plus fine, topbar resserrée */
@@ -1047,8 +1265,17 @@ canvas.course-illus {
   .tsize-btn { padding: 8px 14px; font-size: 14px; }
   .mode-btn {
     flex: 1; min-height: 46px;
-    padding: 10px 16px; font-size: 12.5px; letter-spacing: 0.1em;
+    padding: 10px 12px; font-size: 12px; letter-spacing: 0.08em;
   }
+  .team-header { padding: 14px 16px; gap: 12px; }
+  .team-header-brand span:last-child { display: none; }
+  .team-count { font-size: 12px; padding: 6px 14px; }
+  .team-close { font-size: 12px; padding: 10px 16px; white-space: nowrap; }
+  .team-track { gap: 22px; padding: 24px max(50vw, 150px); }
+  .team-cell { width: min(72vw, 300px); }
+  .team-info { margin-top: 14px; }
+  .team-name { font-size: 22px; }
+  .team-role { font-size: 11px; }
   #ui-hint, #ui-click-hint { display: none; }
   #ui-dots { bottom: 86px; max-width: calc(100vw - 32px); overflow-x: auto; padding: 14px 20px; gap: 20px; }
   #ui-dots .dot { width: 9px; height: 9px; }

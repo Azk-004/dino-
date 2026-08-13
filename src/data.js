@@ -136,7 +136,7 @@ export const STATIONS = [
     chapter: 1,
     num: "06",
     kicker: "Chapitre 2 · Étape 3 · Zonage :",
-    title: "Zonage du territoire.",
+    title: "Zonage.",
     bullets: [
       "Délimitation selon des normes spécifiques du territoire",
       "Des supports facteurs d'embellissement et de modernité",
@@ -268,7 +268,7 @@ export const STATIONS = [
     chapter: 3,
     num: "12",
     kicker: "Chapitre 4 · Mise à jour :",
-    title: "Pérenniser et faire évoluer le secteur.",
+    title: "Pérenniser les acquis de développement du secteur.",
     bullets: [
       "Pérenniser les acquis de développement",
       "Le rayonnement des villes par les supports",

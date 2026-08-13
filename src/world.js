@@ -63,6 +63,20 @@ export function wrapText(ctx, text, maxWidth) {
   return lines;
 }
 
+// Titre auto-ajusté : réduit la graisse jusqu'à tenir dans `maxLines`, pour que
+// jamais un long titre ne soit tronqué sur le panneau, quel que soit l'écran.
+function fitTitle(ctx, text, maxW, startSize, minSize, maxLines) {
+  let size = startSize;
+  ctx.font = `600 ${size}px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif`;
+  let lines = wrapText(ctx, text, maxW);
+  while (lines.length > maxLines && size > minSize) {
+    size -= 4;
+    ctx.font = `600 ${size}px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif`;
+    lines = wrapText(ctx, text, maxW);
+  }
+  return { lines, size };
+}
+
 export function groundTexture() {
   const c = document.createElement("canvas");
   c.width = 256;
@@ -197,6 +211,10 @@ export function buildPanel(st, curve, t, side, index) {
   group.rotation.y = restRot;
 
   const frameMat = new THREE.MeshStandardMaterial({ color: PAL.walnut, roughness: 0.8, metalness: 0.05 });
+  // La nuit, le cadre s'éclaire très légèrement pour que la silhouette du panneau reste visible
+  // (ton bleu nuit : il se fond dans l'ambiance au lieu de ressortir en brun chaud)
+  frameMat.emissive = new THREE.Color(0x3a3f4d);
+  frameMat.emissiveIntensity = 0;
   const frame = new THREE.Mesh(new THREE.BoxGeometry(6.6, 4.4, 0.22), frameMat);
   frame.position.y = 3.0;
   frame.castShadow = true;
@@ -254,22 +272,21 @@ export function buildPanel(st, curve, t, side, index) {
     group.add(post);
   }
 
-  const cw = LOW ? 640 : 1024;
-  const ch = LOW ? 480 : 768;
-  const canvas = document.createElement("canvas");
-  canvas.width = cw;
-  canvas.height = ch;
-  drawPanelCanvas(canvas.getContext("2d"), st, index, cw, ch);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = LOW ? 2 : 8;
+  // Ratio 6.2/4.0 = 1.55 : le canvas doit avoir exactement le même ratio que la face 3D,
+  // sinon le texte est étiré horizontalement (~16% avant ce correctif).
+  const cw = LOW ? 768 : 1280;
+  const ch = Math.round(cw * (660 / 1024)); // 495 / 825 — même ratio que la face (1.55)
+  const dayTex = makePanelTex(st, index, cw, ch, false);
+  const nightTex = makePanelTex(st, index, cw, ch, true);
 
-  // Face en matériau diffus pur (Lambert) : aucune réflexion spéculaire, aucun reflet solaire — lecture parfaite
-  // Léger émissive blanc : la nuit, le panneau reste lisible (intensité pilotée depuis la scène)
+  // Face en matériau diffus pur (Lambert) : aucune réflexion spéculaire, aucun reflet solaire — lecture parfaite.
+  // Le jour : texture parchemin clair + encre sombre (émissive éteinte).
+  // La nuit : la scène bascule sur la texture « enseigne » (fond sombre + texte clair lumineux) et monte
+  // l'émissive chaude : le texte brille, la face reste sombre — jamais blanche, toujours lisible.
   const frontMat = new THREE.MeshLambertMaterial({
-    map: tex,
+    map: dayTex,
   });
-  frontMat.emissive = new THREE.Color(0xffffff);
+  frontMat.emissive = new THREE.Color(0xf0cf90);
   frontMat.emissiveIntensity = 0;
   const front = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 4.0), frontMat);
   front.position.set(0, 3.0, 0.125);
@@ -300,45 +317,169 @@ export function buildPanel(st, curve, t, side, index) {
   beacon.position.set(0, 5.52, 0);
   group.add(beacon);
 
-  return { group, frontMat, light, beaconMat, front, restRot };
+  return { group, frontMat, light, beaconMat, front, restRot, frameMat, dayTex, nightTex };
 }
 
-function drawPanelCanvas(ctx, st, index, cw = 1024, ch = 768) {
-  const w = cw, h = ch;
-  ctx.scale(cw / 1024, ch / 768);
+function makePanelTex(st, index, cw, ch, night) {
+  const canvas = document.createElement("canvas");
+  canvas.width = cw;
+  canvas.height = ch;
+  drawPanelCanvas(canvas.getContext("2d"), st, index, cw, ch, night);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = LOW ? 2 : 8;
+  return tex;
+}
+
+function drawPanelCanvas(ctx, st, index, cw = 1024, ch = 660, night = false) {
+  // Espace de conception 1024×660 = ratio 1.55 = ratio de la face 3D (6.2×4.0) :
+  // le texte n'est plus étiré horizontalement sur aucun écran.
+  ctx.scale(cw / 1024, ch / 660);
+  // Tout le dessin utilise l'espace de conception constant : plus aucun élément
+  // (filets, pagination, vignette) n'est coupé ou n'arrive à mi-chemin, quel que soit cw/ch.
+  const DW = 1024, DH = 660;
+
+  // ---- Version nuit : enseigne rétroéclairée (fond bleu profond, texte ivoire lumineux) ----
+  if (night) {
+    const grad = ctx.createLinearGradient(0, 0, 0, DH);
+    grad.addColorStop(0, "#2c3347");
+    grad.addColorStop(0.55, "#252c3d");
+    grad.addColorStop(1, "#1a2130");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, DW, DH);
+    const halo = ctx.createRadialGradient(DW / 2, DH * 0.42, 40, DW / 2, DH * 0.42, DW * 0.55);
+    halo.addColorStop(0, "rgba(140,160,210,0.10)");
+    halo.addColorStop(1, "rgba(140,160,210,0)");
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, DW, DH);
+
+    // Filets discrets
+    ctx.strokeStyle = "rgba(150,165,200,0.22)";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(30, 30, DW - 60, DH - 60);
+    ctx.strokeStyle = "rgba(150,165,200,0.14)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(45, 45, DW - 90, DH - 90);
+
+    // Bandeau supérieur
+    ctx.fillStyle = "rgba(210,170,110,0.16)";
+    ctx.fillRect(64, 48, DW - 128, 46);
+    ctx.fillStyle = "rgba(220,180,120,0.4)";
+    ctx.fillRect(64, 92, DW - 128, 2);
+
+    ctx.fillStyle = "#d8c9a3";
+    ctx.font = "500 22px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+    ctx.textAlign = "left";
+    ctx.letterSpacing = "5px";
+    ctx.fillText(st.kicker.toUpperCase(), 64, 78);
+    ctx.letterSpacing = "0px";
+
+    // Numéro en filigrane
+    ctx.fillStyle = "rgba(220,205,170,0.10)";
+    ctx.font = "600 220px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(st.num, DW - 56, 270);
+    ctx.fillStyle = "rgba(220,180,120,0.35)";
+    ctx.font = "600 40px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+    ctx.fillText(st.num, DW - 56, 298);
+
+    ctx.fillStyle = "#c9a25f";
+    ctx.fillRect(64, 108, 90, 4);
+
+    // Titre lumineux (halo chaud derrière = effet enseigne)
+    ctx.save();
+    ctx.shadowColor = "rgba(255,205,120,0.55)";
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = "#f6e7c0";
+    ctx.textAlign = "left";
+    const fit = fitTitle(ctx, st.title, 850, 56, 38, 4);
+    let y = 176;
+    const tStep = Math.round(fit.size * 1.1);
+    fit.lines.forEach((ln) => { ctx.fillText(ln, 64, y); y += tStep; });
+    ctx.restore();
+    y += 14;
+
+    if (st.id !== "quiz" && st.bullets.length) {
+      ctx.fillStyle = "rgba(200,170,120,0.35)";
+      ctx.fillRect(64, y - 4, 60, 2);
+      y += 22;
+      const footerTop = DH - 104;
+      let bSize = 26;
+      const wrapBullets = (size) => {
+        ctx.font = `400 ${size}px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif`;
+        const bl = [];
+        st.bullets.forEach((b) => bl.push(...wrapText(ctx, b, 830)));
+        return bl;
+      };
+      let bulletLines = wrapBullets(bSize);
+      while (bulletLines.length * Math.round(bSize * 1.38) > footerTop - y && bSize > 19) {
+        bSize -= 1;
+        bulletLines = wrapBullets(bSize);
+      }
+      const bStep = Math.round(bSize * 1.38);
+      bulletLines.forEach((ln) => {
+        ctx.fillStyle = "#c9a25f";
+        ctx.beginPath();
+        ctx.arc(74, y - 9, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.save();
+        ctx.shadowColor = "rgba(255,205,120,0.4)";
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = "#e8dab4";
+        ctx.fillText(ln, 98, y);
+        ctx.restore();
+        y += bStep;
+      });
+    }
+
+    // Bandeau de pied
+    ctx.fillStyle = "rgba(200,170,120,0.25)";
+    ctx.fillRect(64, DH - 90, DW - 128, 2);
+    ctx.fillStyle = "rgba(200,190,215,0.55)";
+    ctx.font = "400 19px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+    ctx.textAlign = "left";
+    ctx.letterSpacing = "3px";
+    ctx.fillText("MODULE 1 · DOMAINE PUBLIC", 64, DH - 60);
+    ctx.fillStyle = "rgba(210,170,110,0.6)";
+    ctx.textAlign = "right";
+    ctx.fillText(String(index + 1).padStart(2, "0") + " / " + String(13).padStart(2, "0"), DW - 64, DH - 60);
+    ctx.letterSpacing = "0px";
+    return;
+  }
+
   // Fond « parchemin beige » raffiné : dégradé doux + halo central chaleureux
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  const grad = ctx.createLinearGradient(0, 0, 0, DH);
   grad.addColorStop(0, "#fdf8ec");
   grad.addColorStop(0.55, "#f7eed7");
   grad.addColorStop(1, "#efe1c2");
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, w, h);
-  const halo = ctx.createRadialGradient(w / 2, h * 0.42, 40, w / 2, h * 0.42, w * 0.55);
+  ctx.fillRect(0, 0, DW, DH);
+  const halo = ctx.createRadialGradient(DW / 2, DH * 0.42, 40, DW / 2, DH * 0.42, DW * 0.55);
   halo.addColorStop(0, "rgba(255,244,216,0.55)");
   halo.addColorStop(1, "rgba(255,244,216,0)");
   ctx.fillStyle = halo;
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillRect(0, 0, DW, DH);
 
   // Grain de papier très léger
   ctx.globalAlpha = 0.05;
   for (let i = 0; i < 900; i++) {
     ctx.fillStyle = Math.random() > 0.5 ? "#7a5f38" : "#ffffff";
-    ctx.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+    ctx.fillRect(Math.random() * DW, Math.random() * DH, 2, 2);
   }
   ctx.globalAlpha = 1;
 
   // Filet doré extérieur + double cadre intérieur
   ctx.strokeStyle = "rgba(122,95,56,0.28)";
   ctx.lineWidth = 3;
-  ctx.strokeRect(34, 34, w - 68, h - 68);
+  ctx.strokeRect(30, 30, DW - 60, DH - 60);
   ctx.strokeStyle = "rgba(192,138,104,0.22)";
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(52, 52, w - 104, h - 104);
+  ctx.strokeRect(45, 45, DW - 90, DH - 90);
 
   // Coins façon « repère de dossier »
   ctx.fillStyle = "#c08a68";
   for (const [cx, cy, dirx, diry] of [
-    [34, 34, 1, 1], [w - 34, 34, -1, 1], [34, h - 34, 1, -1], [w - 34, h - 34, -1, -1],
+    [30, 30, 1, 1], [DW - 30, 30, -1, 1], [30, DH - 30, 1, -1], [DW - 30, DH - 30, -1, -1],
   ]) {
     ctx.fillRect(cx + dirx * 8, cy + diry * 8, 26 * dirx, 4 * diry);
     ctx.fillRect(cx + dirx * 8, cy + diry * 8, 4 * dirx, 26 * diry);
@@ -346,75 +487,99 @@ function drawPanelCanvas(ctx, st, index, cw = 1024, ch = 768) {
 
   // Bandeau supérieur terracotta avec filet doré
   ctx.fillStyle = "rgba(192,138,104,0.14)";
-  ctx.fillRect(70, 64, w - 140, 56);
+  ctx.fillRect(64, 48, DW - 128, 46);
   ctx.fillStyle = "rgba(207,165,116,0.55)";
-  ctx.fillRect(70, 118, w - 140, 2);
+  ctx.fillRect(64, 92, DW - 128, 2);
 
   ctx.fillStyle = "#8a6a4e";
-  ctx.font = "500 26px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  ctx.font = "500 22px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
   ctx.textAlign = "left";
-  ctx.letterSpacing = "6px";
-  ctx.fillText(st.kicker.toUpperCase(), 70, 96);
+  ctx.letterSpacing = "5px";
+  ctx.fillText(st.kicker.toUpperCase(), 64, 78);
   ctx.letterSpacing = "0px";
 
   // Numéro en filigrane, plus élégant
   ctx.fillStyle = "rgba(207,165,116,0.16)";
-  ctx.font = "600 300px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  ctx.font = "600 220px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
   ctx.textAlign = "right";
-  ctx.fillText(st.num, w - 60, 360);
+  ctx.fillText(st.num, DW - 56, 270);
   ctx.fillStyle = "rgba(192,138,104,0.5)";
-  ctx.font = "600 46px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
-  ctx.fillText(st.num, w - 60, 392);
+  ctx.font = "600 40px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  ctx.fillText(st.num, DW - 56, 298);
 
   ctx.fillStyle = "#c08a68";
-  ctx.fillRect(70, 148, 90, 4);
+  ctx.fillRect(64, 108, 90, 4);
 
-  ctx.fillStyle = "#3a2e1f";
-  ctx.font = "600 62px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  // Halo lumineux discret derrière le texte : l'encre sombre se détache nettement du parchemin,
+  // même à distance ou la nuit (lisible quelle que soit la lumière ambiante).
+  const inkHalo = () => {
+    ctx.save();
+    ctx.shadowColor = "rgba(255,246,220,0.72)";
+    ctx.shadowBlur = 5;
+  };
+  const inkEnd = () => ctx.restore();
+
+  inkHalo();
+  ctx.fillStyle = "#241a0e";
   ctx.textAlign = "left";
-  const titleLines = wrapText(ctx, st.title, 850);
-  let y = 232;
-  titleLines.slice(0, 4).forEach((ln) => { ctx.fillText(ln, 70, y); y += 70; });
-  y += 18;
+  const fit = fitTitle(ctx, st.title, 850, 56, 38, 4);
+  let y = 176;
+  const tStep = Math.round(fit.size * 1.1);
+  fit.lines.forEach((ln) => { ctx.fillText(ln, 64, y); y += tStep; });
+  inkEnd();
+  y += 14;
 
   if (st.id !== "quiz" && st.bullets.length) {
     ctx.fillStyle = "rgba(122,95,56,0.45)";
-    ctx.fillRect(70, y - 6, 60, 2);
-    y += 26;
-    ctx.font = "400 30px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
-    const bulletLines = [];
-    st.bullets.slice(0, 4).forEach((b) => bulletLines.push(...wrapText(ctx, b, 830)));
-    bulletLines.slice(0, 5).forEach((ln) => {
+    ctx.fillRect(64, y - 4, 60, 2);
+    y += 22;
+    const footerTop = DH - 104;
+    let bSize = 26;
+    const wrapBullets = (size) => {
+      ctx.font = `400 ${size}px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif`;
+      const bl = [];
+      st.bullets.forEach((b) => bl.push(...wrapText(ctx, b, 830)));
+      return bl;
+    };
+    let bulletLines = wrapBullets(bSize);
+    while (bulletLines.length * Math.round(bSize * 1.38) > footerTop - y && bSize > 19) {
+      bSize -= 1;
+      bulletLines = wrapBullets(bSize);
+    }
+    const bStep = Math.round(bSize * 1.38);
+    bulletLines.forEach((ln) => {
       ctx.fillStyle = "#c08a68";
       ctx.beginPath();
-      ctx.arc(78, y - 10, 4, 0, Math.PI * 2);
+      ctx.arc(74, y - 9, 3.5, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "#4c3d28";
-      ctx.fillText(ln, 100, y);
-      y += 40;
+      inkHalo();
+      ctx.fillStyle = "#2e2314";
+      ctx.fillText(ln, 98, y);
+      inkEnd();
+      y += bStep;
     });
   }
 
   // Bandeau de pied : module + pagination, séparé par un filet doré
   ctx.fillStyle = "rgba(207,165,116,0.35)";
-  ctx.fillRect(70, h - 108, w - 140, 2);
+  ctx.fillRect(64, DH - 90, DW - 128, 2);
   ctx.fillStyle = "rgba(122,95,56,0.7)";
-  ctx.font = "400 22px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  ctx.font = "400 19px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
   ctx.textAlign = "left";
   ctx.letterSpacing = "3px";
-  ctx.fillText("MODULE 1 · DOMAINE PUBLIC", 70, h - 74);
+  ctx.fillText("MODULE 1 · DOMAINE PUBLIC", 64, DH - 60);
   ctx.fillStyle = "rgba(170,120,85,0.8)";
   ctx.textAlign = "right";
-  ctx.fillText(String(index + 1).padStart(2, "0") + " / " + String(13).padStart(2, "0"), w - 70, h - 74);
+  ctx.fillText(String(index + 1).padStart(2, "0") + " / " + String(13).padStart(2, "0"), DW - 64, DH - 60);
   ctx.letterSpacing = "0px";
 
   // Vignette légère sur les bords uniquement
-  const vig = ctx.createRadialGradient(w / 2, h / 2, w * 0.3, w / 2, h / 2, w * 0.62);
+  const vig = ctx.createRadialGradient(DW / 2, DH / 2, DW * 0.3, DW / 2, DH / 2, DW * 0.62);
   vig.addColorStop(0, "rgba(0,0,0,0)");
   vig.addColorStop(0.6, "rgba(0,0,0,0)");
   vig.addColorStop(1, "rgba(150,120,75,0.24)");
   ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillRect(0, 0, DW, DH);
 }
 
 export function buildBuilding(w, h, d, z, lateral) {
@@ -1051,8 +1216,8 @@ export function buildMorrisColumn(pos, angle = 0, posterLines = ["PUBLICITÉ", "
   const top = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), trimMat);
   top.position.y = 2.75;
   g.add(top);
-  // Affiche publicitaire douce
-  const sw = 256, sh = 640;
+  // Affiche publicitaire douce — canvas au ratio de la face (0.92/2.5 = 0.368) pour un texte non étiré
+  const sw = 236, sh = 640;
   const c = document.createElement("canvas");
   c.width = sw; c.height = sh;
   const ctx = c.getContext("2d");
@@ -1081,9 +1246,12 @@ export function buildMorrisColumn(pos, angle = 0, posterLines = ["PUBLICITÉ", "
     new THREE.PlaneGeometry(0.92, 2.5),
     new THREE.MeshLambertMaterial({ map: tex })
   );
+  // Éclairage nocturne doux : émissif ivoire crémeux piloté depuis la scène (lisibilité sans blanchir)
+  poster.material.emissive = new THREE.Color(0xece2c8);
+  poster.material.emissiveIntensity = 0;
   poster.position.set(0, 1.25, 0.55);
   g.add(poster);
-  g.userData = { body };
+  g.userData = { body, poster };
   return g;
 }
 
@@ -1112,22 +1280,22 @@ export function buildBusShelter(pos, side = 1) {
   sideGlass.position.set(1.9, 1.5, 0);
   sideGlass.rotation.y = Math.PI / 2;
   g.add(sideGlass);
-  // Affiche publicitaire (côté route)
-  const sw = 320, sh = 200;
+  // Affiche publicitaire (côté route) — canvas au ratio de la face (3.4/1.4 = 2.43) pour un texte non étiré
+  const sw = 340, sh = 140;
   const c = document.createElement("canvas");
   c.width = sw; c.height = sh;
   const ctx = c.getContext("2d");
   ctx.fillStyle = "#f2e7cd";
   ctx.fillRect(0, 0, sw, sh);
   ctx.fillStyle = "#cfa574";
-  ctx.fillRect(0, 0, sw, 40);
+  ctx.fillRect(0, 0, sw, 30);
   ctx.textAlign = "center";
   ctx.fillStyle = "#3a2e1f";
-  ctx.font = "700 30px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
-  ctx.fillText("VOTRE ESPACE PUBLICITAIRE", sw / 2, 105);
-  ctx.font = "400 20px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  ctx.font = "700 24px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  ctx.fillText("VOTRE ESPACE PUBLICITAIRE", sw / 2, 72);
+  ctx.font = "400 15px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
   ctx.fillStyle = "#7a5f38";
-  ctx.fillText("MODULE 1 · PANNEAUTIQUE", sw / 2, 150);
+  ctx.fillText("MODULE 1 · PANNEAUTIQUE", sw / 2, 104);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = LOW ? 2 : 8;
@@ -1135,6 +1303,9 @@ export function buildBusShelter(pos, side = 1) {
     new THREE.PlaneGeometry(3.4, 1.4),
     new THREE.MeshLambertMaterial({ map: tex })
   );
+  // Affiche d'abribus éclairée la nuit, ivoire crémeux (comme un vrai panneau lumineux, sans blanchir)
+  poster.material.emissive = new THREE.Color(0xece2c8);
+  poster.material.emissiveIntensity = 0;
   poster.position.set(0, 1.45, 0.42);
   g.add(poster);
   g.userData = { poster };
@@ -1467,9 +1638,9 @@ export function buildBillboard(pos, angle = 0, lines = ["ESPACE", "PUBLICITAIRE"
   board.position.y = 3.6;
   board.castShadow = true;
   g.add(board);
-  // Affiche douce
+  // Affiche douce — canvas au ratio de la face (5.3/2.8 = 1.893) pour un texte non étiré
   const cw = LOW ? 320 : 640;
-  const ch = LOW ? 180 : 360;
+  const ch = Math.round(cw * (2.8 / 5.3)); // 169 / 338
   const c = document.createElement("canvas");
   c.width = cw; c.height = ch;
   const ctx = c.getContext("2d");
@@ -1533,22 +1704,22 @@ export function buildKiosk(pos, angle = 0) {
   );
   canopy.position.set(0, 1.65, 0.85);
   g.add(canopy);
-  // Petite affiche
+  // Petite affiche — canvas au ratio de la face (0.7/0.5 = 1.4) pour un texte non étiré
   const c = document.createElement("canvas");
-  c.width = 128; c.height = 96;
+  c.width = 128; c.height = 91;
   const ctx = c.getContext("2d");
   ctx.fillStyle = "#f2e7cd";
-  ctx.fillRect(0, 0, 128, 96);
+  ctx.fillRect(0, 0, 128, 91);
   ctx.strokeStyle = "rgba(138,111,69,0.6)";
   ctx.lineWidth = 4;
-  ctx.strokeRect(4, 4, 120, 88);
+  ctx.strokeRect(4, 4, 120, 83);
   ctx.textAlign = "center";
   ctx.fillStyle = "#3a2e1f";
-  ctx.font = "700 20px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  ctx.font = "700 18px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
   ctx.fillText("LE QUOTIDIEN", 64, 40);
-  ctx.font = "400 15px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  ctx.font = "400 14px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
   ctx.fillStyle = "#7a5f38";
-  ctx.fillText("0,50 €", 64, 66);
+  ctx.fillText("0,50 €", 64, 64);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = LOW ? 2 : 8;
@@ -1594,13 +1765,13 @@ export function buildMarketStall(pos, angle = 0, color = 0xc98f6a) {
   g.add(awning);
   // Enseigne éclairée la nuit
   const c = document.createElement("canvas");
-  c.width = 256; c.height = 96;
+  c.width = 256; c.height = 98;
   const ctx = c.getContext("2d");
   ctx.fillStyle = "#f7eeda";
-  ctx.fillRect(0, 0, 256, 96);
+  ctx.fillRect(0, 0, 256, 98);
   ctx.strokeStyle = "rgba(138,111,69,0.6)";
   ctx.lineWidth = 6;
-  ctx.strokeRect(4, 4, 248, 88);
+  ctx.strokeRect(4, 4, 248, 90);
   ctx.fillStyle = "#3a2e1f";
   ctx.textAlign = "center";
   ctx.font = "700 34px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
@@ -1713,45 +1884,45 @@ export function buildStorefront(pos, angle = 0, color = 0xc98f6a, label = "BOUTI
   cornice.position.y = h + 0.1;
   g.add(cornice);
 
-  // Vitrine (canvas)
+  // Vitrine (canvas) — même ratio que la face (4.0×1.98 → 2.02) : texte et étagères non étirés
   const cw = LOW ? 256 : 512;
-  const ch = LOW ? 160 : 320;
+  const ch = Math.round(cw * (h * 0.6) / (w * 0.8)); // 253 / 127
   const c = document.createElement("canvas");
   c.width = cw; c.height = ch;
   const ctx = c.getContext("2d");
-  ctx.scale(cw / 512, ch / 320);
-  const grad = ctx.createLinearGradient(0, 0, 0, 320);
+  ctx.scale(cw / 512, ch / 253);
+  const grad = ctx.createLinearGradient(0, 0, 0, 253);
   grad.addColorStop(0, "#f2e6c9");
   grad.addColorStop(1, "#dccaa3");
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 512, 320);
+  ctx.fillRect(0, 0, 512, 253);
   // Étagères et produits
   const shelfColors = ["#c08a68", "#7d9a68", "#cfa574"];
   for (let s = 0; s < 3; s++) {
     const sx = 30 + s * 160;
     ctx.fillStyle = "rgba(122,95,56,0.5)";
-    ctx.fillRect(sx, 192, 120, 10);
+    ctx.fillRect(sx, 152, 120, 8);
     ctx.fillStyle = shelfColors[s];
     for (let i = 0; i < 4; i++) {
       ctx.beginPath();
-      ctx.arc(sx + 22 + i * 26, 178, 9, 0, Math.PI * 2);
+      ctx.arc(sx + 22 + i * 26, 141, 9, 0, Math.PI * 2);
       ctx.fill();
     }
   }
   // Reflet vitre
   ctx.fillStyle = "rgba(255,255,255,0.2)";
   ctx.beginPath();
-  ctx.moveTo(300, 0); ctx.lineTo(430, 0); ctx.lineTo(230, 320); ctx.lineTo(100, 320);
+  ctx.moveTo(300, 0); ctx.lineTo(430, 0); ctx.lineTo(230, 253); ctx.lineTo(100, 253);
   ctx.closePath(); ctx.fill();
   // Cadre
   ctx.strokeStyle = "#8a6a4e";
   ctx.lineWidth = 12;
-  ctx.strokeRect(6, 6, 500, 308);
+  ctx.strokeRect(6, 6, 500, 241);
   // Enseigne (Century Gothic, comme partout)
   ctx.fillStyle = "#3a2e1f";
   ctx.font = "700 36px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(label, 256, 52);
+  ctx.fillText(label, 256, 44);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = LOW ? 2 : 8;
@@ -1990,7 +2161,8 @@ export function buildSucette(pos, angle = 0, lines = ["ESPACE", "PUBLICITAIRE"])
   post.position.y = 0.6;
   post.castShadow = true;
   g.add(post);
-  const sw = 256, sh = 384;
+  // Canvas au ratio de la face (1.35/2.0 = 0.675) pour un texte non étiré
+  const sw = 270, sh = 400;
   const c = document.createElement("canvas");
   c.width = sw; c.height = sh;
   const ctx = c.getContext("2d");
@@ -2006,8 +2178,8 @@ export function buildSucette(pos, angle = 0, lines = ["ESPACE", "PUBLICITAIRE"])
   ctx.fillRect(0, 0, sw, 36);
   ctx.textAlign = "center";
   ctx.fillStyle = "#3a2e1f";
-  ctx.font = "700 42px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
-  lines.forEach((ln, i) => ctx.fillText(ln, sw / 2, 168 + i * 58));
+  ctx.font = "700 40px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
+  lines.forEach((ln, i) => ctx.fillText(ln, sw / 2, 172 + i * 58));
   ctx.fillStyle = "#8a6a4e";
   ctx.font = "400 22px 'Century Gothic', 'CenturyGothic', 'AppleGothic', Arial, sans-serif";
   ctx.fillText("DOMAINE PUBLIC", sw / 2, sh - 34);
@@ -2015,6 +2187,9 @@ export function buildSucette(pos, angle = 0, lines = ["ESPACE", "PUBLICITAIRE"])
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = LOW ? 2 : 8;
   const mat = new THREE.MeshLambertMaterial({ map: tex });
+  // Éclairage nocturne doux, ivoire crémeux (intensité pilotée depuis la scène)
+  mat.emissive = new THREE.Color(0xece2c8);
+  mat.emissiveIntensity = 0;
   const front = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 2.0), mat);
   front.position.set(0, 1.95, 0.02);
   g.add(front);

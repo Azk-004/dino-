@@ -2,6 +2,7 @@ import Lenis from "lenis";
 import { createScene } from "./scene.js";
 import { initUI } from "./ui.js";
 import { initCourse } from "./course.js";
+import { initTeam } from "./team.js";
 import { STATIONS } from "./data.js";
 import "./style.css";
 
@@ -34,22 +35,33 @@ function courseScrollTo(top, behavior = "smooth") {
 }
 
 function setMode(mode) {
+  const isJourney = mode === "journey";
   const isCourse = mode === "course";
-  const isOpen = course.isOpen();
-  if (isOpen) course.close();
+  const isTeam = mode === "team";
+  if (course.isOpen()) course.close();
+  if (team.isOpen()) team.close();
   // Quitter le questionnaire avant d'entrer en mode cours : la page doit rester déverrouillée
   if (isCourse) ui.setQuizShown(false);
   if (isCourse) course.open();
-  document.getElementById("mode-journey").classList.toggle("active", !isCourse);
+  if (isTeam) team.open();
+  document.getElementById("mode-journey").classList.toggle("active", isJourney);
   document.getElementById("mode-course-btn").classList.toggle("active", isCourse);
+  document.getElementById("mode-team-btn").classList.toggle("active", isTeam);
   if (isCourse) {
     lenis.stop();
     courseLenis?.start();
+  } else if (isTeam) {
+    courseLenis?.stop();
+    lenis.stop();
   } else {
     courseLenis?.stop();
     lenis.start();
   }
 }
+
+const team = initTeam({
+  onExit: () => setMode("journey"),
+});
 
 const course = initCourse({
   onExit: () => setMode("journey"),
@@ -65,6 +77,7 @@ const course = initCourse({
 
 document.getElementById("mode-journey").addEventListener("click", () => setMode("journey"));
 document.getElementById("mode-course-btn").addEventListener("click", () => setMode("course"));
+document.getElementById("mode-team-btn").addEventListener("click", () => setMode("team"));
 
 // ---------------- Mode lumière : Auto (heure réelle) / Jour / Nuit ----------------
 // Icônes SVG sobres (aucun emoji « sticker ») : soleil, croissant, cadran d'horloge
@@ -123,6 +136,10 @@ if (atParam && !isNaN(Number(atParam))) {
     window.scrollTo(0, Math.round(Math.min(1, Math.max(0, Number(atParam))) * max));
   }, 400);
 }
+// ?mode=team|course : ouvre directement un mode (démo / vérification headless)
+if (urlParams.get("mode") === "team" || urlParams.get("mode") === "course") {
+  setTimeout(() => setMode(urlParams.get("mode")), 400);
+}
 // ?hide=1 : masque immédiatement l'écran titre (démo / vérification headless) en
 // déclenchant le même chemin que le défilement : progress > 0.015 -> state.started.
 // Prioritaire seulement si ?at= n'est pas fourni (sinon at gagne).
@@ -151,18 +168,20 @@ layout();
 
 // ---------------- Lenis + ScrollTrigger ----------------
 const lenis = new Lenis({
-  duration: 1.12,
+  duration: 1.32,
   smoothWheel: true,
+  easing: (t) => 1 - Math.pow(1 - t, 3),
   touchMultiplier: 1.5,
-  wheelMultiplier: 1.0,
+  wheelMultiplier: 1.05,
 });
 
 const courseMainEl = document.querySelector("#ui-course .course-main");
 courseLenis = new Lenis({
   wrapper: courseMainEl,
   content: courseMainEl,
-  duration: 1.15,
+  duration: 1.25,
   smoothWheel: true,
+  easing: (t) => 1 - Math.pow(1 - t, 3),
   touchMultiplier: 1.6,
   wheelMultiplier: 1.0,
 });
@@ -214,6 +233,12 @@ window.addEventListener("resize", () => {
 
 // Keyboard navigation
 window.addEventListener("keydown", (e) => {
+  if (team.isOpen()) {
+    if (e.key === "Escape") setMode("journey");
+    else if (e.key === "ArrowLeft") { e.preventDefault(); team.nav(-1); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); team.nav(1); }
+    return;
+  }
   if (course.isOpen()) {
     if (e.key === "Escape") setMode("journey");
     else if (e.key === "ArrowDown" || e.key === "PageDown") {
@@ -306,6 +331,7 @@ function toNDC(e) {
 }
 
 window.addEventListener("click", (e) => {
+  if (team.isOpen()) return;
   if (course.isOpen()) return;
   if (ui.isReaderOpen()) return;
   if (ui.quizOpen()) return; // questionnaire ouvert : les clics lui appartiennent
@@ -326,6 +352,11 @@ window.addEventListener("click", (e) => {
     return;
   }
   if (hit.kind === "car") { scene.interact({ kind: "car", index: hit.index }); return; }
+  if (hit.kind === "bille") {
+    scene.interact({ kind: "bille", index: hit.index });
+    ui.showToast(hit.tip);
+    return;
+  }
   if (hit.tip) ui.showToast(hit.tip);
 });
 
@@ -348,6 +379,7 @@ window.addEventListener("mousemove", (e) => {
   hoverQueued = true;
   requestAnimationFrame(() => {
     hoverQueued = false;
+    if (team.isOpen()) return;
     if (course.isOpen()) return;
     if (ui.isReaderOpen()) return;
     if (ui.quizOpen()) {
@@ -376,6 +408,8 @@ window.__panneautique = {
   closeReader: ui.closeReader,
   openCourse: () => setMode("course"),
   closeCourse: () => setMode("journey"),
+  openTeam: () => setMode("team"),
+  closeTeam: () => setMode("journey"),
   pickAt: (cx, cy) => {
     const hit = scene.pick((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
     return hit ? { kind: hit.kind, index: hit.index, tip: hit.tip } : null;
@@ -407,6 +441,10 @@ window.__panneautique = {
   setHour: (h) => scene.setHour(h),
   setLightMode: (m) => { lightMode = m; applyLightMode(); },
   getTimeInfo: () => scene.getTimeInfo(),
+  panelCanvas: (i, night) => {
+    const c = scene.getPanelCanvas(i, night);
+    return c ? { w: c.width, h: c.height, dataUrl: c.toDataURL("image/png") } : null;
+  },
 };
 
 // Show topbar / dots after intro
