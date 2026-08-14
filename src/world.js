@@ -201,7 +201,9 @@ export function buildPanel(st, curve, t, side, index) {
   const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
   // Espacement régulier le long de la route : panneaux bien décalés sur le côté
   // (hors de la chaussée et du trottoir) — l'animation et la route restent au centre.
-  const lateral = perp.clone().multiplyScalar(side * 7.4);
+  // Sur mobile (portrait), on les rapproche de la route (6,0 m au lieu de 7,4) :
+  // ils entrent plus facilement dans le champ de vision étroit et restent lisibles.
+  const lateral = perp.clone().multiplyScalar(side * (LOW ? 6.0 : 7.4));
   const zJitter = (index % 3) - 1;
   group.position.set(p.x + lateral.x + zJitter * 0.5, 0, p.z + lateral.z + zJitter * 0.5);
 
@@ -274,7 +276,9 @@ export function buildPanel(st, curve, t, side, index) {
 
   // Ratio 6.2/4.0 = 1.55 : le canvas doit avoir exactement le même ratio que la face 3D,
   // sinon le texte est étiré horizontalement (~16% avant ce correctif).
-  const cw = LOW ? 768 : 1280;
+  // Sur mobile, 1024 au lieu de 768 : le texte des panneaux reste net sur les écrans
+  // à haute densité de pixels (coût de rendu modéré, gain de lisibilité net).
+  const cw = LOW ? 1024 : 1280;
   const ch = Math.round(cw * (660 / 1024)); // 495 / 825 — même ratio que la face (1.55)
   const dayTex = makePanelTex(st, index, cw, ch, false);
   const nightTex = makePanelTex(st, index, cw, ch, true);

@@ -33,6 +33,7 @@
           <button id="mode-course-btn" class="mode-btn">Cours illustré</button>
           <button id="mode-team-btn" class="mode-btn">L'équipe</button>
         </div>
+        <button id="contact-open" class="mode-btn contact-btn" title="Nous contacter">Contact</button>
         <div id="ui-progress">
           <div id="ui-progress-fill"></div>
         </div>
@@ -113,14 +114,45 @@
 
     <div id="ui-toast"></div>
 
+    <div id="ui-contact" class="contact-wrap" aria-hidden="true">
+      <div class="contact-panel">
+        <button id="contact-close" class="contact-close" aria-label="Fermer">×</button>
+        <div class="contact-kicker">Une question, une remarque ?</div>
+        <h2 class="contact-title">Écrivez-nous.</h2>
+        <div class="contact-rule"></div>
+        <form id="contact-form" class="contact-form" novalidate>
+          <label class="contact-field">
+            <span>Nom</span>
+            <input id="contact-name" name="name" type="text" autocomplete="name" required />
+          </label>
+          <label class="contact-field">
+            <span>Email</span>
+            <input id="contact-email" name="email" type="email" autocomplete="email" required />
+          </label>
+          <label class="contact-field">
+            <span>Message</span>
+            <textarea id="contact-message" name="message" rows="4" required></textarea>
+          </label>
+          <button type="submit" class="contact-submit">Envoyer</button>
+          <div id="contact-status" class="contact-status" role="status"></div>
+        </form>
+      </div>
+    </div>
+
     <div id="ui-team">
       <header class="team-header">
         <div class="team-header-brand">
           <span class="brand-mark"></span>
           <span>Panneautique · Domaine public — L'équipe</span>
         </div>
-        <div id="team-count" class="team-count">01 / 08</div>
-        <button id="team-close" class="team-close">← Retour au parcours 3D</button>
+        <div class="team-tools">
+          <div class="team-nav" role="group" aria-label="Naviguer entre les membres">
+            <button id="team-prev" class="team-nav-btn" aria-label="Membre précédent" title="Membre précédent">←</button>
+            <button id="team-next" class="team-nav-btn" aria-label="Membre suivant" title="Membre suivant">→</button>
+          </div>
+          <div id="team-count" class="team-count">L'équipe</div>
+        </div>
+        <button id="team-close" class="team-close"><span class="team-close-full">← Retour au parcours 3D</span><span class="team-close-short">← Parcours 3D</span></button>
       </header>
       <div id="team-scroll" data-lenis-prevent>
         <div id="team-corridor" class="team-corridor">

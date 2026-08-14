@@ -235,6 +235,23 @@ body::after {
   background: var(--btn-grad);
   box-shadow: 0 4px 14px rgba(150, 110, 70, 0.25);
 }
+/* Bouton Contact : action secondaire du bandeau, légèrement détachée des modes.
+   NB : le bandeau #ui est en pointer-events:none — sans auto, ce bouton ne répond pas. */
+#contact-open.contact-btn {
+  color: var(--bronze-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: rgba(253, 250, 242, 0.75);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+  transition: all 0.25s ease;
+}
+#contact-open.contact-btn:hover {
+  color: var(--ink);
+  border-color: var(--amber);
+  background: rgba(253, 250, 242, 0.98);
+}
 #ui-progress {
   flex: 1; height: 4px; background: rgba(122, 95, 56, 0.16);
   border-radius: 4px; overflow: hidden; margin-left: auto; max-width: 300px;
@@ -440,6 +457,12 @@ html.ts-lg .reader-title, html.ts-lg .course-sec-title { font-size: clamp(27px, 
   pointer-events: auto;
 }
 #ui-card.show { opacity: 1; transform: translateY(-50%) translateX(0); }
+/* Pendant la lecture d'un panneau : la carte s'efface pour ne jamais masquer le texte */
+#ui-card.panel-focus {
+  opacity: 0;
+  transform: translateY(-50%) translateX(60px);
+  pointer-events: none;
+}
 #ui-card::before {
   content: ""; position: absolute; top: 0; left: 0;
   width: 5px; height: 100%;
@@ -987,11 +1010,16 @@ canvas.course-illus {
   #course-toc-select { display: block; }
   .course-main { grid-column: 1; min-width: 0; overscroll-behavior: contain; }
   .course-illus { max-width: 100%; }
-  #course-sections { padding: 0 20px; }
-  .course-cover { padding: 44px 20px 30px; }
-  .course-header { padding: 14px 16px; gap: 12px; }
+  #course-sections { padding: 0 16px; }
+  .course-cover { padding: 30px 16px 22px; }
+  .course-cover-desc { font-size: 15px; }
+  .course-section { padding: 42px 0 50px; }
+  .course-sec-content p { font-size: 15.5px; }
+  .course-header { padding: 12px 14px; gap: 10px; }
   .course-header-brand span:last-child { display: none; }
   .course-close { font-size: 12px; padding: 10px 16px; white-space: nowrap; }
+  .course-foot { padding: 26px 0 48px; }
+  .course-cta { padding: 14px 24px; font-size: 13px; }
 }
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -1008,6 +1036,11 @@ canvas.course-illus {
 body.mode-team #ui-team {
   display: grid;
   grid-template-rows: auto 1fr;
+  animation: teamFade 0.55s ease both;
+}
+@keyframes teamFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 body.mode-team #ui { display: none; }
 body.mode-team #scene { visibility: hidden; }
@@ -1016,6 +1049,8 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
 
 .team-header {
   display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 10px;
   gap: 20px;
   padding: 18px 28px;
   background: rgba(250, 243, 226, 0.82);
@@ -1046,6 +1081,93 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
   transition: all 0.2s ease;
 }
 .team-close:hover { color: var(--ink); border-color: var(--amber); }
+/* Libellé court réservé au mobile (sinon le bouton déborde sur sa propre ligne) */
+.team-close .team-close-short { display: none; }
+
+/* Outils du bandeau : flèches de navigation + compteur */
+.team-tools {
+  display: flex; align-items: center;
+  gap: 12px;
+}
+.team-nav { display: flex; gap: 6px; }
+.team-nav-btn {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--sans); font-size: 15px; line-height: 1;
+  color: var(--bronze-2);
+  background: rgba(253, 250, 242, 0.6);
+  border: 1px solid var(--line-soft); border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.team-nav-btn:hover {
+  color: var(--ink);
+  border-color: var(--amber);
+  background: rgba(253, 250, 242, 0.95);
+  box-shadow: 0 4px 12px rgba(150, 110, 70, 0.18);
+}
+.team-nav-btn:active { transform: translateY(1px); }
+
+/* Page de garde du couloir : présentation de l'équipe */
+.team-cover {
+  position: relative;
+  width: min(70vw, 560px);
+  flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+  padding: 44px 48px;
+  border: 1px solid rgba(201, 143, 78, 0.4);
+  border-radius: 22px;
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgba(255, 250, 238, 0.9), transparent 60%),
+    linear-gradient(180deg, rgba(253, 250, 242, 0.88), rgba(240, 226, 196, 0.72));
+  box-shadow: 0 30px 70px rgba(100, 74, 40, 0.22);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.team-cover-kicker {
+  font-size: 11px; letter-spacing: 0.4em; text-transform: uppercase;
+  color: var(--bronze); margin-bottom: 18px;
+}
+.team-cover-title {
+  font-family: var(--serif); font-weight: 600;
+  font-size: clamp(34px, 5vw, 52px); line-height: 1.08;
+  color: var(--ink);
+}
+.team-cover-rule {
+  width: 72px; height: 3px; margin: 22px 0 24px;
+  background: linear-gradient(90deg, var(--terracotta), var(--amber));
+  border-radius: 3px;
+}
+.team-cover-desc {
+  font-size: 15.5px; line-height: 1.85; color: var(--ink-2);
+  max-width: 440px;
+}
+.team-cover-meta {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 12px; margin-top: 26px;
+}
+.team-cover-chip {
+  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-2);
+  padding: 8px 16px;
+  border: 1px solid var(--line-soft); border-radius: 999px;
+  background: rgba(253, 250, 242, 0.7);
+}
+.team-cover-cta {
+  margin-top: 30px;
+  font-family: var(--sans); font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink);
+  padding: 13px 28px;
+  background: var(--btn-grad);
+  border: 1px solid rgba(140, 112, 72, 0.3); border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(150, 110, 70, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.team-cover-cta:hover { transform: translateY(-2px); box-shadow: 0 16px 34px rgba(150, 110, 70, 0.38); }
+.team-cover-cta:active { transform: translateY(0); }
 
 #team-scroll {
   position: relative;
@@ -1121,6 +1243,21 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
   will-change: transform, filter;
   transition: box-shadow 0.5s ease;
 }
+/* Sceau aux initiales : entrée avec le portrait, posé sur l'angle de la niche */
+.team-monogram {
+  position: absolute; top: 3.5%; right: 4.5%;
+  z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  min-width: 46px; height: 46px; padding: 0 9px;
+  font-family: var(--serif); font-weight: 600; font-size: 15px; letter-spacing: 0.04em;
+  color: var(--ink);
+  background: linear-gradient(180deg, #fdf6e4, #ecd9b4);
+  border: 1px solid rgba(201, 143, 78, 0.55);
+  border-radius: 50%;
+  box-shadow: 0 10px 22px rgba(90, 66, 38, 0.3), inset 0 0 0 1px rgba(255, 250, 238, 0.6);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
 .team-info {
   margin-top: 20px;
   text-align: center;
@@ -1141,6 +1278,13 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
   font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--bronze-2);
   will-change: transform, opacity, letter-spacing;
+}
+.team-quote {
+  margin-top: 10px;
+  font-family: var(--serif); font-style: italic;
+  font-size: 13.5px; line-height: 1.6;
+  color: var(--sand);
+  will-change: transform, opacity;
 }
 .team-accent {
   width: 130px; height: 3px; margin: 17px auto 0;
@@ -1224,6 +1368,11 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
   .card-title { font-size: 20px; }
   .card-body p { font-size: 13px; }
   #ui-hint { right: 34px; }
+  /* Équipe : bandeau sur une seule ligne aussi en tablette portrait (768-1024 px),
+     la marque tronque à l'ellipse si le libellé ne tient plus. */
+  .team-header { flex-wrap: nowrap; gap: 12px; padding: 14px 20px; }
+  .team-header-brand { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .team-tools, .team-close { flex-shrink: 0; }
 }
 
 /* Tablette portrait / mobile */
@@ -1235,128 +1384,204 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
     backdrop-filter: none;
   }
 
-  /* Topbar sur 2 lignes aérées : marque + contrôle de mode pleine largeur */
+  /* Topbar compacte : une seule rangée resserrée + rangée de modes fine */
   #ui-topbar {
     flex-wrap: wrap;
-    gap: 14px 16px;
-    padding: 16px 20px;
-    background: linear-gradient(180deg, rgba(248, 240, 222, 0.92), rgba(248, 240, 222, 0.5) 70%, transparent);
+    gap: 8px 12px;
+    padding: 10px 14px 12px;
+    background: linear-gradient(180deg, rgba(248, 240, 222, 0.94), rgba(248, 240, 222, 0.55) 70%, transparent);
   }
-  #ui-brand { flex: 1; gap: 10px; }
-  #ui-brand-text { display: block; font-size: 11px; letter-spacing: 0.18em; }
+  #ui-brand { flex: 1; gap: 8px; }
+  #ui-brand-text { display: block; font-size: 10.5px; letter-spacing: 0.16em; }
   #ui-chapter { display: none; }
   #ui-progress {
-    display: block; flex-basis: 100%; height: 3px;
-    max-width: none; margin: 2px 0 0; order: 4;
+    display: block; flex-basis: 100%; height: 2px;
+    max-width: none; margin: 1px 0 0; order: 4;
   }
   #ui-modes {
     order: 5; width: 100%; margin-left: 0;
-    gap: 6px; padding: 5px;
+    gap: 5px; padding: 4px;
   }
   #ui-textsize {
-    order: 6; margin: 2px auto 0;
-    gap: 4px; padding: 3px;
+    order: 6; margin: 0 auto;
+    gap: 3px; padding: 3px;
   }
   #ui-daynight-wrap {
-    order: 7; margin: 2px auto 0;
+    order: 7; margin: 0 auto;
     padding: 3px;
   }
-  #ui-daynight { padding: 8px 14px; font-size: 13px; }
-  .tsize-btn { padding: 8px 14px; font-size: 14px; }
+  #ui-daynight { padding: 6px 12px; font-size: 12.5px; }
+  .tsize-btn { padding: 6px 11px; font-size: 13px; }
   .mode-btn {
-    flex: 1; min-height: 46px;
-    padding: 10px 12px; font-size: 12px; letter-spacing: 0.08em;
+    flex: 1; min-height: 38px;
+    padding: 7px 10px; font-size: 11px; letter-spacing: 0.07em;
   }
-  .team-header { padding: 14px 16px; gap: 12px; }
+  /* Équipe : bandeau sur une seule ligne (marque + flèches/compteur + fermer),
+     sans repli sur une deuxième rangée. Le libellé long du bouton fermer est
+     remplacé par une version courte réservée au mobile. */
+  .team-header { flex-wrap: nowrap; padding: 8px 10px; gap: 8px; }
+  .team-header-brand { flex-shrink: 0; }
   .team-header-brand span:last-child { display: none; }
-  .team-count { font-size: 12px; padding: 6px 14px; }
-  .team-close { font-size: 12px; padding: 10px 16px; white-space: nowrap; }
-  .team-track { gap: 22px; padding: 24px max(50vw, 150px); }
-  .team-cell { width: min(72vw, 300px); }
-  .team-info { margin-top: 14px; }
-  .team-name { font-size: 22px; }
-  .team-role { font-size: 11px; }
+  .team-count { font-size: 11px; padding: 5px 12px; white-space: nowrap; }
+  .team-nav-btn { width: 32px; height: 32px; font-size: 13px; flex-shrink: 0; }
+  .team-tools { gap: 6px; flex-shrink: 0; }
+  .team-close { font-size: 11px; padding: 8px 13px; white-space: nowrap; flex-shrink: 0; }
+  .team-close .team-close-full { display: none; }
+  .team-close .team-close-short { display: inline; }
+  .team-cover { width: min(86vw, 480px); padding: 22px 16px; }
+  .team-cover-kicker { font-size: 9.5px; letter-spacing: 0.3em; margin-bottom: 10px; }
+  .team-cover-title { font-size: clamp(24px, 7vw, 32px); }
+  .team-cover-rule { width: 60px; margin: 12px 0 14px; }
+  .team-cover-desc { font-size: 13px; line-height: 1.7; }
+  .team-cover-meta { gap: 8px; margin-top: 14px; }
+  .team-cover-chip { padding: 5px 11px; font-size: 9.5px; }
+  .team-cover-cta { margin-top: 16px; padding: 10px 20px; font-size: 11.5px; }
+  /* Le couloir est aligné en haut sur mobile : le contenu démarre juste sous le
+     bandeau au lieu de flotter au milieu d'une grande zone vide. */
+  #team-corridor { align-items: flex-start; }
+  .team-track { gap: 16px; padding: 30px max(42vw, 110px) 48px; }
+  .team-cell { width: min(66vw, 250px); }
+  .team-info { margin-top: 8px; }
+  .team-name { font-size: 18px; }
+  .team-role { font-size: 10px; margin-top: 5px; }
+  .team-quote { font-size: 12px; margin-top: 6px; line-height: 1.55; }
+  .team-accent { margin-top: 12px; }
+  .team-monogram { min-width: 34px; height: 34px; font-size: 12px; }
   #ui-hint, #ui-click-hint { display: none; }
-  #ui-dots { bottom: 86px; max-width: calc(100vw - 32px); overflow-x: auto; padding: 14px 20px; gap: 20px; }
-  #ui-dots .dot { width: 9px; height: 9px; }
-  #ui-dots .dot.active { transform: scale(1.5); }
-  /* Tant que l'écran titre est affiché : ni carte de station ni points de navigation par-dessus */
-  #ui:has(#ui-title:not(.hide)) #ui-card { opacity: 0; pointer-events: none; }
+  #ui-dots { bottom: 14px; max-width: calc(100vw - 24px); overflow-x: auto; padding: 10px 14px; gap: 14px; }
+  #ui-dots .dot { width: 8px; height: 8px; }
+  #ui-dots .dot.active { transform: scale(1.4); }
+  /* Sur mobile, la carte de station (résumé du chapitre + bouton « Lire la leçon ») est supprimée :
+     trop encombrante et elle empîète sur l'espace — on touche directement le panneau 3D pour ouvrir la leçon. */
+  #ui-card { display: none; }
+  /* Tant que l'écran titre est affiché : ni carte ni points de navigation par-dessus */
   #ui:has(#ui-title:not(.hide)) #ui-dots { opacity: 0; pointer-events: none; }
-  /* Une fois en route, les points de navigation passent au-dessus de la carte pour ne plus la chevaucher */
-  #ui:has(#ui-card.show) #ui-dots {
-    bottom: calc(20px + 42vh + 16px);
-    bottom: calc(20px + 42dvh + 16px);
-  }
   #ui-card {
-    top: auto; bottom: 26px; transform: none;
-    width: calc(100vw - 24px); max-height: 38vh; max-height: 38dvh;
-    padding: 28px 30px 30px;
+    top: auto; bottom: 18px; transform: none;
+    width: calc(100vw - 20px); max-height: 34vh; max-height: 34dvh;
+    padding: 20px 22px 22px;
     clip-path: polygon(0 0, 100% 0, 100% 0, calc(100% - 0px) 0, 100% 100%, 0 100%);
-    left: 12px;
-    border-radius: 0 16px 16px 0;
-    opacity: 0; transform: translateY(60px);
+    left: 10px;
+    border-radius: 0 14px 14px 0;
+    opacity: 0; transform: translateY(50px);
   }
   #ui-card.show { opacity: 1; transform: translateY(0); }
-  #ui-card::before { top: 0; left: 0; width: 5px; height: 100%; }
+  #ui-card::before { top: 0; left: 0; width: 4px; height: 100%; }
+  #ui-card .card-kicker { margin-bottom: 10px; }
+  #ui-card .card-title { margin-bottom: 10px; }
+  #ui-card .card-rule { margin-bottom: 12px; }
+  #ui-card .card-open { margin-top: 16px; padding: 11px 16px; }
   #ui-card .card-body {
-    overflow-y: auto; max-height: 20vh; max-height: 20dvh;
+    overflow-y: auto; max-height: 18vh; max-height: 18dvh;
     overscroll-behavior: contain;
     padding-right: 4px;
   }
-  .card-title { font-size: 22px; }
-  .card-body p { font-size: 14px; }
-  #ui-title { gap: 28px; padding: 40px 28px; }
-  .title-main { font-size: clamp(40px, 11vw, 58px); }
-  .title-sub { letter-spacing: 0.3em; }
-  .title-desc { font-size: 15px; line-height: 1.85; }
-  .meta-chip { padding: 10px 18px; font-size: 11px; }
-  #ui-quiz { padding: 140px clamp(18px, 6vw, 28px) 84px; overscroll-behavior: contain; }
-  .quiz-card { padding: 32px 28px; margin-bottom: 38px; }
-  .quiz-q { font-size: 17px; }
-  .quiz-opt { padding: 16px 18px; font-size: 15px; min-height: 52px; }
-  .quiz-explain { font-size: 14.5px; }
-  #quiz-result { padding: 44px 28px; }
+  .card-title { font-size: 20px; }
+  .card-body p { font-size: 13.5px; }
+  #ui-title { gap: 18px; padding: 26px 20px; }
+  .title-kicker { margin-bottom: 0; font-size: 11px; letter-spacing: 0.34em; }
+  .title-main { font-size: clamp(34px, 10vw, 48px); }
+  .title-sub { margin-top: 8px; letter-spacing: 0.26em; }
+  .title-rule { margin-top: 6px; }
+  .title-desc { font-size: 14px; line-height: 1.75; max-width: 330px; }
+  .meta-chip { padding: 8px 14px; font-size: 10.5px; }
+  .title-meta { gap: 10px; }
+  .title-scroll { margin-top: 16px; gap: 12px; }
+  .title-arrow { height: 34px; }
+  #ui-quiz { padding: 104px clamp(14px, 5vw, 20px) 56px; overscroll-behavior: contain; }
+  .quiz-head { margin-bottom: 22px; }
+  .quiz-card { padding: 24px 20px; margin-bottom: 26px; }
+  .quiz-q { font-size: 16px; margin-bottom: 20px; }
+  .quiz-opt { padding: 13px 14px; font-size: 14px; min-height: 46px; margin-top: 10px; }
+  .quiz-explain { font-size: 13.5px; padding: 13px 14px; }
+  #quiz-result { padding: 34px 20px; }
+  /* Lecteur : feuille pleine hauteur, nette et confortable à lire sur téléphone */
   #ui-reader { padding: 0; align-items: flex-end; }
   .reader-panel {
-    width: 100%; max-height: 88vh; max-height: 88dvh;
-    padding: 40px 28px 34px;
+    width: 100%;
+    height: 92dvh; max-height: 92dvh;
+    padding: 70px 22px 34px;
     border-radius: 20px 20px 0 0;
     border: none; border-top: 1px solid rgba(201, 143, 78, 0.4);
     overscroll-behavior: contain;
   }
-  .reader-nav { flex-wrap: wrap; gap: 14px; }
-  .reader-count { order: 0; width: 100%; text-align: center; }
-  #ui-toast { bottom: 110px; }
+  /* Barre de progression plaquée au sommet de la feuille (dans la courbure du haut) :
+     elle remplace le filet décoratif du haut (masqué ici pour éviter le doublon). */
+  .reader-progress {
+    position: absolute; top: 0; left: 0; right: 0;
+    width: auto; margin: 0;
+    height: 4px;
+    border-radius: 0;
+  }
+  .reader-panel::before { display: none; }
+  /* Bouton fermer : vraie cible tactile, alignée sur la ligne du chapô */
+  .reader-close {
+    top: 18px; right: 18px;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; line-height: 1;
+    color: var(--ink-2);
+    background: rgba(201, 143, 78, 0.12);
+    border: 1px solid var(--line-soft-2);
+    border-radius: 50%;
+  }
+  .reader-kicker { margin-bottom: 12px; padding-right: 52px; letter-spacing: 0.22em; }
+  .reader-title { font-size: 24px; margin-bottom: 12px; }
+  .reader-rule { margin-bottom: 20px; }
+  .reader-body p { font-size: 16px; line-height: 1.85; }
+  .reader-body p + p { margin-top: 18px; }
+  .reader-body .body-t { font-size: 16.5px; margin-bottom: 5px; }
+  .reader-bullets li { font-size: 15.5px; }
+  .reader-nav { flex-wrap: nowrap; gap: 8px; margin-top: 18px; padding-top: 14px; }
+  .reader-nav-btn { padding: 10px 12px; font-size: 11px; white-space: nowrap; letter-spacing: 0.08em; }
+  .reader-count { order: 0; flex: 1; width: auto; text-align: center; }
+  #ui-toast { bottom: 96px; }
 }
 
 /* Petits téléphones */
 @media (max-width: 480px) {
-  .brand-mark { width: 12px; height: 12px; }
-  #ui-brand-text { font-size: 10px; letter-spacing: 0.16em; }
-  .mode-btn { min-height: 44px; padding: 9px 12px; font-size: 11.5px; letter-spacing: 0.09em; }
-  .title-kicker { font-size: 11px; letter-spacing: 0.38em; }
-  .title-main { font-size: clamp(36px, 13vw, 48px); }
-  .title-sub { font-size: clamp(13px, 3.8vw, 17px); letter-spacing: 0.24em; }
-  .title-desc { font-size: 14px; }
-  .title-scroll { margin-top: 16px; }
-  .card-open { padding: 14px 18px; font-size: 12.5px; }
-  #ui-dots { gap: 9px; padding: 10px 14px; }
-  .quiz-title { font-size: clamp(24px, 8vw, 32px); }
-  .quiz-score strong { font-size: 17px; }
-  #course-sections { padding: 0 14px; }
-  .course-cover { padding: 36px 14px 24px; }
-  .course-cover-title { font-size: clamp(30px, 9vw, 42px); }
-  .course-cover-meta { flex-wrap: wrap; }
-  .course-header { padding: 12px; gap: 8px; }
+  .brand-mark { width: 11px; height: 11px; }
+  #ui-brand-text { font-size: 10px; letter-spacing: 0.14em; }
+  .mode-btn { min-height: 36px; padding: 7px 9px; font-size: 11px; letter-spacing: 0.08em; }
+  .title-kicker { font-size: 10.5px; letter-spacing: 0.3em; }
+  .title-main { font-size: clamp(30px, 11vw, 42px); }
+  .title-sub { font-size: clamp(12px, 3.6vw, 16px); letter-spacing: 0.22em; }
+  .title-desc { font-size: 13.5px; }
+  .title-scroll { margin-top: 12px; gap: 10px; }
+  .card-open { padding: 11px 16px; font-size: 12px; }
+  #ui-dots { gap: 8px; padding: 9px 12px; }
+  .quiz-title { font-size: clamp(23px, 7.5vw, 30px); }
+  .quiz-score strong { font-size: 16px; }
+  #course-sections { padding: 0 12px; }
+  .course-cover { padding: 28px 12px 20px; }
+  .course-cover-kicker { letter-spacing: 0.34em; }
+  .course-cover-title { font-size: clamp(26px, 8vw, 36px); }
+  .course-cover-rule { margin: 22px auto; }
+  .course-cover-meta { flex-wrap: wrap; gap: 10px; }
+  .course-cover-meta span { font-size: 10.5px; padding: 7px 13px; }
+  .course-header { padding: 10px; gap: 8px; }
   .course-header-brand { flex-shrink: 0; }
-  #course-toc-select { flex: 1 1 auto; min-width: 0; max-width: none; font-size: 12px; padding: 9px 11px; }
-  .course-close { font-size: 11px; padding: 9px 12px; flex-shrink: 0; }
+  #course-toc-select { flex: 1 1 auto; min-width: 0; max-width: none; font-size: 12px; padding: 8px 10px; }
+  .course-close { font-size: 11px; padding: 8px 11px; flex-shrink: 0; }
   .course-sec-meta { gap: 8px; flex-wrap: wrap; }
   .course-sec-chapter { flex: 1 1 auto; }
-  .course-sec-chapter { font-size: 10.5px; letter-spacing: 0.2em; }
-  .reader-title { font-size: 25px; }
-  .reader-body p { font-size: 16px; }
+  .course-sec-chapter { font-size: 10.5px; letter-spacing: 0.18em; }
+  .course-sec-title { font-size: clamp(21px, 6.5vw, 27px); }
+  .course-sec-rule { margin: 14px 0 18px; }
+  .course-sec-content p { font-size: 15px; }
+  .reader-title { font-size: 23px; }
+  .reader-body p { font-size: 15.5px; }
+  /* Équipe sur très petits écrans : la marque disparaît, le bandeau reste sur une ligne */
+  .team-header { padding: 6px 8px; gap: 6px; }
+  .team-header-brand { display: none; }
+  .team-count { font-size: 10px; padding: 4px 10px; }
+  .team-nav-btn { width: 28px; height: 28px; font-size: 12px; }
+  .team-tools { gap: 4px; }
+  .team-close { font-size: 10px; padding: 7px 10px; }
+  .team-cover { padding: 18px 14px; }
+  .team-cell { width: min(66vw, 230px); }
+  .team-name { font-size: 17px; }
+  .team-quote { font-size: 11.5px; }
 }
 
 /* Très court à l'écran (paysage mobile / petits laptops) */
@@ -1409,7 +1634,7 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
   #ui-topbar { padding-top: calc(20px + env(safe-area-inset-top)); }
   @media (max-width: 760px) {
     #ui-topbar { padding-top: calc(12px + env(safe-area-inset-top)); }
-    #ui-dots { bottom: calc(74px + env(safe-area-inset-bottom)); }
+    #ui-dots { bottom: calc(14px + env(safe-area-inset-bottom)); }
     #ui-card { bottom: calc(20px + env(safe-area-inset-bottom)); }
     #ui-toast { bottom: calc(90px + env(safe-area-inset-bottom)); }
     #ui-quiz { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
@@ -1420,4 +1645,83 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
     #ui-card { bottom: calc(16px + env(safe-area-inset-bottom)); }
   }
   .course-header { padding-top: calc(18px + env(safe-area-inset-top)); }
+  .team-header { padding-top: calc(8px + env(safe-area-inset-top)); }
+  @media (max-width: 480px) {
+    .team-header { padding-top: calc(6px + env(safe-area-inset-top)); }
+  }
 }
+
+/* ---------- Formulaire de contact ---------- */
+.contact-wrap {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(130, 105, 70, 0.42);
+  backdrop-filter: blur(8px);
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+  pointer-events: none;
+  z-index: 90;
+}
+.contact-wrap.show { opacity: 1; visibility: visible; pointer-events: auto; }
+.contact-panel {
+  width: min(460px, 92vw); max-height: 88vh; overflow-y: auto;
+  position: relative;
+  padding: 40px 44px 36px;
+  border: 1px solid rgba(201, 143, 78, 0.45);
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 248, 228, 0.95), transparent 55%),
+    linear-gradient(180deg, #f9f3e4, #efe3cb);
+  box-shadow: var(--shadow-warm);
+}
+.contact-close {
+  position: absolute; top: 14px; right: 18px;
+  background: none; border: none;
+  font-size: 26px; line-height: 1; color: var(--bronze-2);
+  cursor: pointer; padding: 4px 8px;
+}
+.contact-close:hover { color: var(--ink); }
+.contact-kicker {
+  font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--bronze-2);
+}
+.contact-title { margin: 8px 0 0; font-size: 28px; color: var(--ink); }
+.contact-rule {
+  width: 54px; height: 3px; margin: 16px 0 22px;
+  background: linear-gradient(90deg, var(--bronze), var(--terracotta));
+  border-radius: 3px;
+}
+.contact-form { display: grid; gap: 14px; }
+.contact-field { display: grid; gap: 6px; }
+.contact-field span {
+  font-size: 13px; color: var(--walnut); letter-spacing: 0.4px;
+}
+.contact-field input,
+.contact-field textarea {
+  font-family: var(--sans);
+  font-size: 15px; color: var(--ink);
+  padding: 10px 12px;
+  border: 1px solid rgba(140, 112, 72, 0.35);
+  border-radius: 10px;
+  background: rgba(255, 252, 242, 0.9);
+  outline: none; resize: vertical;
+}
+.contact-field input:focus,
+.contact-field textarea:focus { border-color: var(--bronze); box-shadow: 0 0 0 3px rgba(201, 143, 78, 0.18); }
+.contact-submit {
+  margin-top: 4px;
+  padding: 12px 18px;
+  border: none; border-radius: 10px;
+  font-family: var(--sans); font-size: 15px; font-weight: 600;
+  color: #fff9ef;
+  background: var(--btn-grad);
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(180, 120, 70, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.contact-submit:hover { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(180, 120, 70, 0.34); }
+.contact-submit:active { transform: translateY(0); }
+.contact-status { min-height: 18px; font-size: 13px; color: var(--walnut); }
+.contact-status.ok { color: #5d7a4a; }
+.contact-status.err { color: #a0503a; }

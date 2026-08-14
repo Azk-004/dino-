@@ -1,1 +1,7 @@
 node_modules
+
+# Vite envs (secrets publics côté build)
+.env
+.env.local
+.env.*
+!.env.example

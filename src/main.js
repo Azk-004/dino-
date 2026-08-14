@@ -223,7 +223,7 @@ scene.update(progress, activeIndex);
 
 function loop() {
   scene.update(progress, activeIndex);
-  ui.updateGlobal(progress, activeIndex);
+  ui.updateGlobal(progress, activeIndex, scene.getFramedPanel());
   scene.render();
   requestAnimationFrame(loop);
 }
@@ -345,6 +345,24 @@ window.addEventListener("click", (e) => {
   const hit = scene.pick(nx, ny);
   if (!hit) return;
   if (hit.kind === "panel") { ui.openReader(hit.index); return; }
+  // Quand un panneau de leçon est cadré à l'écran (lecture en cours), un élément
+  // qui passe devant (voiture, pigeon…) peut capter le tap à sa place. Si le point
+  // touché est proche du panneau cadré, c'est le panneau que l'utilisateur vise :
+  // on ouvre la leçon plutôt que de déclencher l'interaction parasite.
+  {
+    const framed = scene.getFramedPanel();
+    if (framed && framed.sw > 0.25) {
+      const pp = scene.projectPickable("panel", framed.index);
+      if (pp) {
+        const px = (pp.x * 0.5 + 0.5) * innerWidth;
+        const py = (-pp.y * 0.5 + 0.5) * innerHeight;
+        if (Math.hypot(px - e.clientX, py - e.clientY) < 80) {
+          ui.openReader(framed.index);
+          return;
+        }
+      }
+    }
+  }
   if (hit.kind === "pigeon") { scene.interact({ kind: "pigeon", index: hit.index }); return; }
   if (hit.kind === "balloon") {
     scene.interact({ kind: "balloon", index: hit.index });
@@ -438,6 +456,9 @@ window.__panneautique = {
     const p = scene.getCameraPos();
     return { progress, activeIndex, cam: { x: p.x, y: p.y, z: p.z } };
   },
+  framed: () => scene.getFramedPanel(),
+  panelScreenSize: (i) => scene.panelScreenSize(i),
+  counts: () => scene.sceneCounts(),
   settle: (prog, idx) => {
     for (let i = 0; i < 2400; i++) scene.update(prog, idx);
     const p = scene.getCameraPos();

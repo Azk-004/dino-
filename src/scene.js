@@ -44,7 +44,10 @@ export function createScene(canvas, stations) {
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(PAL.skyHorizon, 60, 760);
 
-  const camera = new THREE.PerspectiveCamera(isMobile ? 62 : 52, window.innerWidth / window.innerHeight, 0.1, 900);
+  // Sur mobile (portrait), un champ vertical de 62° élargit trop les côtés : les
+  // immeubles envahissent l'écran et le panneau paraît minuscule. 57° recentre la
+  // vision sur la rue et agrandit le panneau en lecture, sans effet « fisheye ».
+  const camera = new THREE.PerspectiveCamera(isMobile ? 57 : 52, window.innerWidth / window.innerHeight, 0.1, 900);
 
   // ---------------- Post-processing (Bloom) : halo chaud des enseignes et lampadaires.
   // Désactivé en basse puissance (mobile) — rendu direct, plus économique. ----------------
@@ -456,15 +459,35 @@ export function createScene(canvas, stations) {
   });
 
   // ---------------- City skyline both sides ----------------
+  // Sur mobile, les immeubles sont plus bas et plus éloignés, et la ville ne commence
+  // pas pile devant la caméra : la rue paraît plus dégagée, le panneau mieux visible.
   for (let i = 0; i < rb(48); i++) {
-    const z = i * 13 + Math.random() * 7;
-    const h = 7 + Math.random() * 27;
+    const z = i * 13 + (isMobile ? 16 : 0) + Math.random() * 7;
+    const h = (7 + Math.random() * 27) * (isMobile ? 0.72 : 1);
     const w = 4 + Math.random() * 3.5;
     const d = 4 + Math.random() * 3.5;
-    const b1 = buildBuilding(w, h, d, z, -78 - Math.random() * 34);
-    const b2 = buildBuilding(w, h * (0.7 + Math.random() * 0.6), d, z, 78 + Math.random() * 34);
+    const back = isMobile ? 20 : 0;
+    const lat1 = -78 - back - Math.random() * 34;
+    const lat2 = 78 + back + Math.random() * 34;
+    const b1 = buildBuilding(w, h, d, z, lat1);
+    const b2 = buildBuilding(w, h * (0.7 + Math.random() * 0.6), d, z, lat2);
     buildings.push(b1, b2);
     scene.add(b1, b2);
+    // Jardins de façade : haie basse, massif de buissons ou plate-bande fleurie au
+    // pied de chaque immeuble, côté rue — la ville paraît habitée jusque devant les
+    // façades au lieu d'une plaine nue autour des immeubles.
+    for (const [lat, bw] of [[lat1, w], [lat2, w * 0.8]]) {
+      const toward = lat > 0 ? -1 : 1; // direction de la rue (les façades regardent le parcours)
+      const roll = Math.random();
+      if (roll < 0.45) {
+        placeHedge(new THREE.Vector3(lat + toward * 2.6, 0, z), bw * 1.05, 0.7 + Math.random() * 0.4);
+      } else if (roll < 0.72) {
+        placeBush(new THREE.Vector3(lat + toward * 2.2, 0, z + (Math.random() - 0.5) * 3), 0.8 + Math.random() * 0.5);
+        placeBush(new THREE.Vector3(lat + toward * 3.0, 0, z - 1.4), 0.6 + Math.random() * 0.4);
+      } else if (roll < 0.88) {
+        placeFlowers(new THREE.Vector3(lat + toward * 2.4, 0, z + (Math.random() - 0.5) * 2), 0.9 + Math.random() * 0.5, i * 7 + 3);
+      }
+    }
   }
 
   // ---------------- Mountain ridge ----------------
@@ -571,6 +594,41 @@ export function createScene(canvas, stations) {
     const side = i % 2 === 0 ? 1 : -1;
     const pos = p.clone().add(perp.clone().multiplyScalar(side * (5.1 + Math.random() * 0.5)));
     scene.add(buildBench(pos, side));
+  }
+
+  // ---------------- Bande de vie entre la rue et les immeubles ----------------
+  // Arbres, haies, buissons, bancs et lampadaires de jardin occupent l'espace entre
+  // la chaussée et les façades : les alentours des immeubles ne sont plus vides,
+  // la ville a de la profondeur et de la vie jusque vers les bâtiments.
+  {
+    const envN = rb(18);
+    for (let i = 0; i < envN; i++) {
+      const t = evenT(i, envN, 0.35);
+      const p = curve.getPointAt(t);
+      const tg = curve.getTangentAt(t);
+      const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+      for (const side of [1, -1]) {
+        const lat = side * (24 + Math.random() * 34);
+        const pos = p.clone().add(perp.clone().multiplyScalar(lat));
+        const roll = Math.random();
+        if (roll < 0.34) {
+          const tr = buildTree(pos, 0.85 + Math.random() * 0.7);
+          trees.push({ g: tr, phase: Math.random() * Math.PI * 2 });
+          scene.add(tr);
+        } else if (roll < 0.55) {
+          placeBush(pos, 0.9 + Math.random() * 0.6);
+        } else if (roll < 0.68) {
+          placeHedge(pos, 2.4 + Math.random() * 2.2, 0.8 + Math.random() * 0.3);
+        } else if (roll < 0.8) {
+          scene.add(buildBench(pos, side));
+        } else {
+          scene.add(buildLamp(pos, side));
+          const lg = buildLampGlow(pos, side);
+          lamps.push({ glow: lg.glow, pool: lg.pool, i: lamps.length });
+          scene.add(lg.group);
+        }
+      }
+    }
   }
 
   // ---------------- Pigeons (qui picorent sur le trottoir) ----------------
@@ -1317,6 +1375,7 @@ export function createScene(canvas, stations) {
   let meteorTimer = Infinity;
   let camPrevAngle = 0;
   let smoothT = 0.005; // progression lissée de la caméra (rendu au scroll)
+  let lastFramed = null; // panneau actuellement cadré/à l'approche (voir update)
 
   // Exposition des faces « papier » la nuit : émissif blanc multiplié par la texture
   // (fond beige clair + texte encre foncée) — le contraste reste fort après tone-mapping.
@@ -1408,38 +1467,59 @@ export function createScene(canvas, stations) {
 
     const bob = Math.sin(time * 0.7) * 0.07;
     const sway = Math.sin(time * 0.25) * 0.18;
-    camTarget.set(p.x + tmpPerp.x * sway, p.y + 3.45 + bob, p.z + tmpPerp.z * sway);
+    // Sur mobile, la caméra est un peu plus haute : la rue prend plus de place, les
+    // façades dominent moins l'écran et on voit le panneau arriver de plus haut.
+    const camY = isMobile ? 4.15 : 3.45;
+    const lookY = isMobile ? 3.0 : 2.7;
+    camTarget.set(p.x + tmpPerp.x * sway, p.y + camY + bob, p.z + tmpPerp.z * sway);
 
     // Cadrage doux du prochain panneau : on le voit bien à distance, mais le regard
     // se recentre sur la route à l'approche (le scroll ne « rentre » jamais dans le panneau).
-    camLook.set(look.x, look.y + 2.7, look.z);
+    camLook.set(look.x, look.y + lookY, look.z);
+    let framed = null;
     {
+      // Panneau visé : le prochain panneau devant la caméra, le plus proche du point
+      // de regard (jamais ceux déjà dépassés — sinon le cadrage saute d'un panneau
+      // à l'autre au passage).
       let frameIdx = 0;
       let best = Infinity;
+      let found = false;
       const lookLead = st + 0.03;
       for (let i = 0; i < N; i++) {
         const tp = 0.02 + ((i + 0.5) / N) * 0.94;
+        // Ignore les panneaux déjà dépassés et ceux qu'on est en train de passer
+        // (à moins de ~3 m derrière la caméra) : le cadrage vise toujours le suivant.
+        if (tp < st + 0.006) continue;
         const d = Math.abs(tp - lookLead);
-        if (d < best) { best = d; frameIdx = i; }
+        if (d < best) { best = d; frameIdx = i; found = true; }
       }
-      const w = THREE.MathUtils.clamp(1 - best / 0.06, 0, 1);
-      if (w > 0) {
-        const pp = panels[frameIdx].group.position;
-        const relX = pp.x - camera.position.x;
-        const relZ = pp.z - camera.position.z;
-        // Ne cadre que les panneaux encore devant la caméra (jamais ceux déjà dépassés)
-        const inFront = relX * tg.x + relZ * tg.z > 0;
-        // Relâche la cadrage plus tardivement (4,5 m au lieu de 9) : on garde le panneau
-        // centré et grand à l'approche, le moment où son texte est réellement lisible.
-        const distP = Math.hypot(relX, relZ);
-        const release = THREE.MathUtils.clamp((distP - 4.5) / 12, 0, 1);
-        const sw = w * w * (3 - 2 * w) * (inFront ? 1 : 0) * release;
+      const pp = panels[frameIdx].group.position;
+      const relX = pp.x - camera.position.x;
+      const relZ = pp.z - camera.position.z;
+      // Ne cadre que les panneaux encore devant la caméra (jamais ceux déjà dépassés)
+      const inFront = found && relX * tg.x + relZ * tg.z > 0;
+      const distP = Math.hypot(relX, relZ);
+      // La force dépend de la DISTANCE, pas du scroll : la caméra se tourne vers le
+      // panneau dès qu'il est assez proche (50 m) et le garde centré jusqu'à ce qu'il
+      // passe à côté. Le panneau reste stable et lisible à l'écran pendant toute
+      // l'approche, au lieu de dériver vers le bord puis de sortir du cadre.
+      if (inFront && distP < 55) {
+        const approach = THREE.MathUtils.clamp((55 - distP) / 14, 0, 1);
+        // Relâche seulement quand le panneau est presque à côté de la caméra : sur
+        // mobile il reste centré et grand (≈ 400 px) au moment de lire le texte.
+        const releaseD = isMobile ? 6.5 : 5;
+        const release = THREE.MathUtils.clamp((distP - releaseD) / 6, 0, 1);
+        const sw = approach * release;
         if (sw > 0) {
           camLookTmp.set(pp.x, pp.y + 2.8, pp.z);
-          camLook.lerp(camLookTmp, sw * 0.38);
+          camLook.lerp(camLookTmp, sw * (isMobile ? 0.9 : 0.5));
+          // Panneau en cours de lecture : distance et cadrage (utilisé par l'UI pour
+          // ne jamais recouvrir le texte des panneaux avec la carte de station).
+          framed = { index: frameIdx, dist: distP, sw };
         }
       }
     }
+    lastFramed = framed;
 
     camera.up.set(0, 1, 0);
     camera.lookAt(camLook);
@@ -1469,8 +1549,12 @@ export function createScene(canvas, stations) {
       // Ajuste la taille du panneau actif à l'écran : plus grand sur les écrans très larges
       // (où un panneau fixe paraît minuscule), plus raisonnable en portrait (où il déborderait).
       const aspectK = THREE.MathUtils.clamp((window.innerWidth / window.innerHeight) / (16 / 9), 0.82, 1.18);
+      // Sur mobile, le panneau en cours de lecture (actif ou cadré) est agrandi davantage :
+      // son texte est réellement lisible à l'approche sans avoir à s'arrêter sur l'écran.
+      const readBoost = isMobile ? 1.28 : 1;
+      const isRead = isActive || (framed && framed.index === i);
       // Le panneau actif grandit nettement : son texte devient réellement lisible à l'approche
-      const targetScale = breathe * (isActive ? 1.04 * aspectK : hovered ? 1.08 * aspectK : 0.82);
+      const targetScale = breathe * (isRead ? 1.04 * aspectK * readBoost : hovered ? 1.08 * aspectK : 0.82);
       // En plein jour, les faces sont mates : aucune émission pour éviter le reflet
       const targetLight = hovered ? 0.18 : isActive ? 0.12 : near ? 0.04 : 0;
       const lerpRate = hovered ? 0.12 : 0.08;
@@ -2013,6 +2097,36 @@ export function createScene(canvas, stations) {
     return camera.position.clone();
   }
 
+  // Taille écran du panneau (vérification headless) : estimation analytique à partir
+  // de la distance et de l'échelle (valide quand le panneau est cadré, face à la caméra).
+  function panelScreenSize(index) {
+    const pl = panels[index];
+    if (!pl) return null;
+    const d = pl.group.position.distanceTo(camera.position);
+    if (d < 1) return null;
+    const s = pl.group.scale.x;
+    const vfov = (camera.fov * Math.PI) / 180;
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * (window.innerWidth / window.innerHeight));
+    const h = ((4.0 * s) / (2 * d * Math.tan(vfov / 2))) * window.innerHeight;
+    const w = ((6.2 * s) / (2 * d * Math.tan(hfov / 2))) * window.innerWidth;
+    return { w: Math.round(w), h: Math.round(h), d: Math.round(d) };
+  }
+
+  // Panneau en cours de lecture (cadré par la caméra), null sinon
+  function getFramedPanel() {
+    return lastFramed;
+  }
+
+  // Compteurs du décor (vérification headless) : confirme que les éléments
+  // d'ambiance (arbres, haies, buissons, lampes) sont bien peuplés.
+  function sceneCounts() {
+    return {
+      trees: trees.length, hedges: hedges.length, bushes: bushes.length,
+      flowers: flowers.length, buildings: buildings.length, lamps: lamps.length,
+      pigeons: pigeons.length,
+    };
+  }
+
   function render() {
     if (composer) composer.render();
     else renderer.render(scene, camera);
@@ -2020,7 +2134,7 @@ export function createScene(canvas, stations) {
 
   return {
     render, resize, update, pick, interact, projectPickable, getReactiveState,
-    getCameraPos, setHover,
+    getCameraPos, getFramedPanel, panelScreenSize, sceneCounts, setHover,
     setTimeMode: (m) => { timeMode = m === "day" || m === "night" ? m : "auto"; },
     setHour: (h) => { hourOverride = h; },
     setNight: (v) => { timeMode = v ? "night" : "day"; },

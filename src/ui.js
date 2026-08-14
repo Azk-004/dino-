@@ -93,12 +93,16 @@ export function initUI() {
     el.title.classList.toggle("hide", state.started);
   }
 
-  function updateGlobal(progress, activeIndex) {
+  function updateGlobal(progress, activeIndex, framed) {
     setProgress(progress);
     showStation(activeIndex, progress);
     setTitle(progress);
     const quizShown = el.quiz.classList.contains("show");
     el.clickHint.classList.toggle("visible", activeIndex >= 0 && !quizShown && !state.readerOpen);
+    // Pendant qu'un panneau est lu (approche rapprochée), la carte de station
+    // s'efface pour ne jamais recouvrir le texte des panneaux.
+    const reading = !!framed && framed.dist < 14;
+    el.card.classList.toggle("panel-focus", reading && activeIndex >= 0 && !quizShown);
   }
 
   // ---------------- Lesson reader ----------------
@@ -235,10 +239,61 @@ export function initUI() {
   applyTsize(savedTsize);
   tsizeBtns.forEach((b) => b.addEventListener("click", () => applyTsize(Number(b.dataset.tsize))));
 
+  // ---------------- Formulaire de contact ----------------
+  const contactWrap = $("#ui-contact");
+  const contactForm = $("#contact-form");
+  const contactStatus = $("#contact-status");
+  const contactName = $("#contact-name");
+  const contactEmail = $("#contact-email");
+  const contactMessage = $("#contact-message");
+  let contactSending = false;
+  function openContact() {
+    contactWrap.classList.add("show");
+    contactWrap.setAttribute("aria-hidden", "false");
+    contactStatus.textContent = "";
+    setTimeout(() => contactName && contactName.focus(), 60);
+  }
+  function closeContact() {
+    contactWrap.classList.remove("show");
+    contactWrap.setAttribute("aria-hidden", "true");
+  }
+  document.querySelector("#contact-open").addEventListener("click", openContact);
+  document.querySelector("#contact-close").addEventListener("click", closeContact);
+  contactWrap.addEventListener("click", (e) => { if (e.target === contactWrap) closeContact(); });
+  // Envoi local pour l'instant (pas de base de données) : on valide, on confirme,
+  // et la liaison serveur sera branchée plus tard.
+  contactForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (contactSending) return;
+    if (!contactName.value.trim() || !contactEmail.value.trim() || !contactMessage.value.trim()) {
+      contactStatus.classList.remove("ok");
+      contactStatus.classList.add("err");
+      contactStatus.textContent = "Merci de remplir tous les champs.";
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contactEmail.value.trim())) {
+      contactStatus.classList.remove("ok");
+      contactStatus.classList.add("err");
+      contactStatus.textContent = "L'adresse email semble incorrecte.";
+      return;
+    }
+    contactSending = true;
+    contactStatus.classList.remove("ok", "err");
+    contactStatus.textContent = "Envoi en cours…";
+    setTimeout(() => {
+      contactSending = false;
+      contactStatus.classList.add("ok");
+      contactStatus.textContent = "Merci, votre message est bien parti.";
+      contactForm.reset();
+      setTimeout(closeContact, 2200);
+    }, 750);
+  });
+
   return {
     updateGlobal, el, openReader, closeReader, readerNav,
     showToast, isReaderOpen: () => state.readerOpen,
     quizOpen, answerQuiz,
+    openContact, closeContact,
     setReaderListener: (fn) => { onReaderChange = fn; },
     setQuizListener: (fn) => { onQuizChange = fn; },
     setQuizShown: (v) => { if (onQuizChange) onQuizChange(v); },

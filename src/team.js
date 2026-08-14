@@ -17,23 +17,10 @@ import Lenis from "lenis";
    RÈGLE D'OR : aucun couple de couches ne partage le même début ET la même fin.
    ========================================================================== */
 
-// ---------------- Données : 8 membres, nom + poste au hasard ----------------
-const FIRST = {
-  f: ["Awa", "Fatoumata", "Aminata", "Estelle", "Mariam", "Nadège", "Clarisse", "Grâce", "Djeneba", "Salimata", "Élodie", "Bertille", "Yasmine", "Maimouna", "Aïcha", "Aurélie"],
-  m: ["Jean-Marc", "Kofi", "Paul", "Yao", "Didier", "Sékou", "Aubin", "Landry", "Marc", "Youssouf", "Thierry", "Ambroise", "Sylvain", "Boris", "Franck", "Abdoulaye"],
-};
-const LAST = ["AGOUA","KOUADIO","DIAWARA","TRAORÉ","MENSAH","BÉRÉ","N'GUESSAN","DOSSOU","OKOULÉ","HOUESSOU","BAKAYOKO","ZINSOU","KONE","DIABATÉ","GOULIBALY","KOUASSI"];
-const FEMALE_ROLES = [
-  "Chargée de communication",
-  "Ingénieure en signalétique urbaine",
-  "Cheffe de projet panneautique",
-  "Directrice des affaires publiques",
-  "Auditrice des espaces publicitaires",
-  "Responsable du foncier publicitaire",
-  "Architecte des espaces urbains",
-  "Experte en mobilité urbaine",
-];
-const MALE_ROLES = [
+// ---------------- Données : membres numérotés, poste fixé par le numéro ------
+// Les noms sont volontairement génériques (« Membre 1 » …) et le rôle dépend
+// uniquement du numéro : stable, sobre et cohérent avec un organigramme.
+const ROLES = [
   "Chargé de communication",
   "Ingénieur en signalétique urbaine",
   "Chef de projet panneautique",
@@ -44,32 +31,33 @@ const MALE_ROLES = [
   "Expert en mobilité urbaine",
 ];
 
+// Devise personnelle (affichée avec le poste, comme une signature)
+const QUOTES = [
+  "La ville se lit comme un livre.",
+  "Bien orienter, c'est respecter.",
+  "Un espace bien signalé est un espace partagé.",
+  "La clarté est une forme de courtoisie urbaine.",
+  "Chaque panneau raconte un trajet.",
+  "Rendre visible, c'est rendre accessible.",
+  "La signalétique pense à ceux qui arrivent.",
+  "Une ville lisible est une ville accueillante.",
+  "L'information juste, au bon endroit, au bon moment.",
+  "Le domaine public se mérite : il se partage.",
+];
+
 const TEAM_SIZE = 8;
 
-function shuffle(arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 function makeMembers(n = TEAM_SIZE) {
-  const femaleFirsts = shuffle(FIRST.f);
-  const maleFirsts = shuffle(FIRST.m);
-  const lasts = shuffle(LAST).slice(0, n);
-  const femaleRoles = shuffle(FEMALE_ROLES).slice(0, n);
-  const maleRoles = shuffle(MALE_ROLES).slice(0, n);
   return Array.from({ length: n }, (_, i) => {
-    const g = Math.random() < 0.5 ? "f" : "m";
-    const first = g === "f" ? femaleFirsts[i] : maleFirsts[i];
+    const seed = (i + 1) * 2654435761 % 2147483647;
+    const rnd = mulberry32(seed);
     return {
-      first,
-      last: lasts[i],
-      name: `${first} ${lasts[i]}`,
-      role: g === "f" ? femaleRoles[i] : maleRoles[i],
-      seed: (i + 1) * 2654435761 % 2147483647,
+      first: "Membre",
+      last: String(i + 1),
+      name: `Membre ${i + 1}`,
+      role: ROLES[i % ROLES.length],
+      quote: pick(rnd, QUOTES),
+      seed,
     };
   });
 }
@@ -311,10 +299,12 @@ function bump(t, center, width) {
      portrait  .90 s                      0      .90
      nom       .50 s (chevauché)          .55    1.05
      poste     .40 s                      .85    1.25
+     devise    .40 s                      .92    1.32
      liseré    .35 s                     1.15    1.50
    Sortie — ordre inverse, durées × 60 % :
      liseré    .21 s                      0      .21
      poste     .24 s                      .09    .33
+     devise    .24 s                      .16    .40
      nom       .30 s                      .18    .48
      portrait  .54 s                      .27    .81
    ========================================================================== */
@@ -322,11 +312,13 @@ const E = {
   portrait: { start: 0.0, dur: 0.9 },
   name: { start: 0.55, dur: 0.5 },
   role: { start: 0.85, dur: 0.4 },
+  quote: { start: 0.92, dur: 0.4 },
   accent: { start: 1.15, dur: 0.35 },
 };
 const X = {
   accent: { start: 0.0, dur: 0.21 },
   role: { start: 0.09, dur: 0.24 },
+  quote: { start: 0.16, dur: 0.24 },
   name: { start: 0.18, dur: 0.3 },
   portrait: { start: 0.27, dur: 0.54 },
 };
@@ -352,13 +344,27 @@ export function initTeam({ onExit } = {}) {
   const members = makeMembers(TEAM_SIZE);
   const avatars = new Array(TEAM_SIZE);
 
-  // ---- Construction du DOM ----
+  // ---- Construction du DOM (membres, puis page de garde insérée en tête) ----
+  const coverEl = document.createElement("section");
+  coverEl.className = "team-cover";
+  coverEl.innerHTML = `
+    <div class="team-cover-kicker">Panneautique · Domaine public</div>
+    <h2 class="team-cover-title">L'équipe.</h2>
+    <div class="team-cover-rule"></div>
+    <p class="team-cover-desc">Huit profils complémentaires, une même mission : rendre le domaine public lisible, respecté et bien partagé. Glissez le long du couloir pour les rencontrer un à un.</p>
+    <div class="team-cover-meta">
+      <span class="team-cover-chip">08 membres</span>
+      <span class="team-cover-chip">1 mission commune</span>
+    </div>
+    <button class="team-cover-cta" type="button">Découvrir l'équipe →</button>
+  `;
   track.innerHTML = members
     .map((m, i) => {
       const letters = m.name
         .split("")
         .map((ch) => `<span class="tl">${ch === " " ? "\u00A0" : ch}</span>`)
         .join("");
+      const initials = (m.first[0] + m.last[0]).toUpperCase();
       return `
         <article class="team-cell" data-i="${i}">
           <div class="team-niche">
@@ -367,17 +373,25 @@ export function initTeam({ onExit } = {}) {
             <div class="team-portrait-wrap">
               <div class="team-portrait"></div>
             </div>
+            <span class="team-monogram">${initials}</span>
           </div>
           <div class="team-info">
             <div class="team-name">${letters}</div>
             <div class="team-role"></div>
+            <div class="team-quote"></div>
             <div class="team-accent"></div>
           </div>
         </article>`;
     })
     .join("");
+  track.insertBefore(coverEl, track.firstChild);
 
   const cells = [];
+  const coverCta = track.querySelector(".team-cover-cta");
+  const cover = {
+    el: coverEl,
+    cx: () => coverEl.offsetLeft + coverEl.offsetWidth / 2,
+  };
   track.querySelectorAll(".team-cell").forEach((el, i) => {
     const cell = {
       el,
@@ -391,13 +405,16 @@ export function initTeam({ onExit } = {}) {
       wrap: el.querySelector(".team-portrait-wrap"),
       portrait: el.querySelector(".team-portrait"),
       glow: el.querySelector(".team-glow"),
+      mono: el.querySelector(".team-monogram"),
       name: el.querySelector(".team-name"),
       letters: [...el.querySelectorAll(".team-name .tl")],
       role: el.querySelector(".team-role"),
+      quote: el.querySelector(".team-quote"),
       accent: el.querySelector(".team-accent"),
     };
     cell.portrait.style.backgroundImage = `url("${(avatars[i] = paintPortrait(members[i].seed))}")`;
     cell.role.textContent = members[i].role;
+    cell.quote.textContent = members[i].quote;
     cell.accent.style.transformOrigin = i % 2 === 0 ? "left center" : "right center";
     el.addEventListener("click", () => focusCell(i));
     setHiddenState(cell);
@@ -409,12 +426,16 @@ export function initTeam({ onExit } = {}) {
     cell.wrap.style.transform = "translateZ(-50px) scale(0.85)";
     cell.portrait.style.filter = "grayscale(35%) blur(4px) brightness(0.4)";
     cell.glow.style.opacity = "0";
+    cell.mono.style.opacity = "0";
+    cell.mono.style.transform = "scale(0.6) translateY(6px)";
     cell.name.style.opacity = "0";
     cell.name.style.transform = "translateY(24px)";
     cell.name.style.filter = "blur(6px)";
     cell.role.style.opacity = "0";
     cell.role.style.transform = "translateY(16px)";
     cell.role.style.letterSpacing = "0.15em";
+    cell.quote.style.opacity = "0";
+    cell.quote.style.transform = "translateY(12px)";
     cell.accent.style.transform = "scaleX(0)";
     cell.accent.style.filter = "";
     for (const l of cell.letters) {
@@ -445,6 +466,8 @@ export function initTeam({ onExit } = {}) {
   }
   function computeActive() {
     const viewCenter = scroller.scrollLeft + scroller.clientWidth / 2;
+    // Page de garde centrée → aucun membre actif (l'équipe se présente)
+    if (Math.abs(cover.cx() - viewCenter) < scroller.clientWidth * 0.32) return -1;
     let best = 0;
     let bestDist = Infinity;
     for (let i = 0; i < cells.length; i++) {
@@ -459,7 +482,9 @@ export function initTeam({ onExit } = {}) {
   let activeIndex = -1;
 
   function updateCount() {
-    countEl.textContent = `${String(activeIndex + 1).padStart(2, "0")} / ${String(TEAM_SIZE).padStart(2, "0")}`;
+    countEl.textContent = activeIndex < 0
+      ? "L'équipe"
+      : `${String(activeIndex + 1).padStart(2, "0")} / ${String(TEAM_SIZE).padStart(2, "0")}`;
   }
 
   // ---- Rendu des couches : fonctions pures d'une progression p (0 = niche masquée,
@@ -477,6 +502,9 @@ export function initTeam({ onExit } = {}) {
       `grayscale(${((1 - p) * 35).toFixed(1)}%) blur(${(4 * (1 - p)).toFixed(1)}px) brightness(${(0.4 + 0.6 * p).toFixed(3)})`;
     // Point light dédié (flicker d'allumage en entrée, 1 sinon)
     cell.glow.style.opacity = (p * flicker).toFixed(3);
+    // Sceau aux initiales : entre avec le portrait
+    cell.mono.style.opacity = p.toFixed(3);
+    cell.mono.style.transform = `scale(${(0.6 + 0.4 * p).toFixed(4)}) translateY(${(6 * (1 - p)).toFixed(1)}px)`;
     // Base de la cellule : la niche avance vers le spectateur
     cell.el.style.transform = `translateZ(${(-50 * (1 - p)).toFixed(1)}px) scale(${(0.85 + 0.15 * p).toFixed(4)})`;
   }
@@ -494,10 +522,13 @@ export function initTeam({ onExit } = {}) {
     }
   }
 
-  function renderRole(cell, p) {
+  function renderRole(cell, p, quoteP) {
     cell.role.style.opacity = p.toFixed(3);
     cell.role.style.transform = `translateY(${(16 * (1 - p)).toFixed(1)}px)`;
     cell.role.style.letterSpacing = `${(0.15 - 0.07 * p).toFixed(3)}em`;
+    const qp = quoteP == null ? p : quoteP;
+    cell.quote.style.opacity = qp.toFixed(3);
+    cell.quote.style.transform = `translateY(${(12 * (1 - qp)).toFixed(1)}px)`;
   }
 
   function renderAccent(cell, p) {
@@ -512,13 +543,14 @@ export function initTeam({ onExit } = {}) {
         portrait: easeOutExpo(prog(t, E.portrait.start, E.portrait.dur)),
         name: easePower4(prog(t, E.name.start, E.name.dur)),
         role: easePower4(prog(t, E.role.start, E.role.dur)),
+        quote: easePower4(prog(t, E.quote.start, E.quote.dur)),
         accent: easeOutQuint(prog(t, E.accent.start, E.accent.dur)),
         letters: cell.letters.map((_, li) =>
           easePower4(prog(t, E.name.start + li * NAME_LETTER_STAGGER, NAME_LETTER_DUR))),
       };
     }
     return {
-      portrait: 1, name: 1, role: 1, accent: 1,
+      portrait: 1, name: 1, role: 1, quote: 1, accent: 1,
       letters: cell.letters.map(() => 1),
     };
   }
@@ -538,7 +570,7 @@ export function initTeam({ onExit } = {}) {
       cells[prev].t0 = now;
       cells[prev].accent.style.filter = "";
     }
-    if (cells[ai].state !== "entering") {
+    if (ai >= 0 && cells[ai].state !== "entering") {
       cells[ai].state = "entering";
       cells[ai].t0 = now;
     }
@@ -564,8 +596,12 @@ export function initTeam({ onExit } = {}) {
       easePower4(prog(t, E.name.start + li * NAME_LETTER_STAGGER, NAME_LETTER_DUR)));
     renderName(cell, ne, lettersP);
 
-    // COUCHE 3 — poste (départ 850 ms, sans split : sobre)
-    renderRole(cell, easePower4(prog(t, E.role.start, E.role.dur)));
+    // COUCHE 3 — poste + devise (départ 850 ms ; la devise suit 70 ms plus tard)
+    renderRole(
+      cell,
+      easePower4(prog(t, E.role.start, E.role.dur)),
+      easePower4(prog(t, E.quote.start, E.quote.dur))
+    );
 
     // COUCHE 4 — liseré (départ 1150 ms, depuis le bord du portrait)
     renderAccent(cell, easeOutQuint(prog(t, E.accent.start, E.accent.dur)));
@@ -599,8 +635,12 @@ export function initTeam({ onExit } = {}) {
     renderAccent(cell, f.accent * (1 - easeOutQuint(prog(t, X.accent.start, X.accent.dur))));
     cell.accent.style.filter = "";
 
-    // Poste
-    renderRole(cell, f.role * (1 - easePower4(prog(t, X.role.start, X.role.dur))));
+    // Poste + devise (la devise repart juste après le poste)
+    renderRole(
+      cell,
+      f.role * (1 - easePower4(prog(t, X.role.start, X.role.dur))),
+      f.quote * (1 - easePower4(prog(t, X.quote.start, X.quote.dur)))
+    );
 
     // Nom (lettres qui se rétractent en ordre inverse)
     const lettersP = cell.letters.map((_, li) => {
@@ -651,7 +691,18 @@ export function initTeam({ onExit } = {}) {
     if (reducedMotion) requestAnimationFrame(() => applyInstant());
   }
 
+  function focusCover() {
+    const left = Math.max(0, cover.cx() - scroller.clientWidth / 2);
+    teamLenis.scrollTo(left, { duration: 1.15, easing: (t) => 1 - Math.pow(1 - t, 3) });
+    if (reducedMotion) requestAnimationFrame(() => applyInstant());
+  }
+
   function nav(dir) {
+    // En bout de couloir, « suivant » ramène à la page de garde (boucle douce)
+    if (dir > 0 && activeIndex === cells.length - 1) {
+      focusCover();
+      return;
+    }
     const target = clamp(activeIndex + dir, 0, cells.length - 1);
     if (target === activeIndex) return;
     focusCell(target);
@@ -666,12 +717,16 @@ export function initTeam({ onExit } = {}) {
         cell.wrap.style.transform = "translateZ(60px) scale(1.6)";
         cell.portrait.style.filter = "grayscale(0%) blur(0px) brightness(1)";
         cell.glow.style.opacity = "1";
+        cell.mono.style.opacity = "1";
+        cell.mono.style.transform = "none";
         cell.name.style.opacity = "1";
         cell.name.style.transform = "none";
         cell.name.style.filter = "none";
         cell.role.style.opacity = "1";
         cell.role.style.transform = "none";
         cell.role.style.letterSpacing = "0.08em";
+        cell.quote.style.opacity = "1";
+        cell.quote.style.transform = "none";
         cell.accent.style.transform = "scaleX(1)";
         cell.el.style.transform = "none";
         for (const l of cell.letters) {
@@ -693,22 +748,22 @@ export function initTeam({ onExit } = {}) {
     document.body.classList.add("mode-team");
     document.documentElement.classList.add("team-lock");
     ensureLenis();
-    // Chaque chargement : nouveaux membres (nom + poste au hasard)
+    // Chaque chargement : les portraits et devises sont re-générés (postes fixes)
     if (reducedMotion) {
       // (on garde les membres déjà générés : pas de re-peinture ni d'animation)
-      scroller.scrollLeft = Math.max(0, cellCenterX(0) - scroller.clientWidth / 2);
+      scroller.scrollLeft = Math.max(0, cover.cx() - scroller.clientWidth / 2);
       applyInstant();
       teamLenis.start();
       return;
     }
-    // recentre le premier membre puis relance la chorégraphie
+    // On démarre sur la page de garde, puis la chorégraphie attend le défilement
     cells.forEach((c) => {
       c.state = "idle";
       c.f = null;
       setHiddenState(c);
     });
     activeIndex = -1;
-    scroller.scrollLeft = Math.max(0, cellCenterX(0) - scroller.clientWidth / 2);
+    scroller.scrollLeft = Math.max(0, cover.cx() - scroller.clientWidth / 2);
     activeIndex = computeActive();
     updateCount();
     if (!running) {
@@ -734,6 +789,10 @@ export function initTeam({ onExit } = {}) {
     if (reducedMotion && running) applyInstant();
   });
 
+  // Navigation : page de garde, flèches du bandeau, clavier
+  coverCta.addEventListener("click", () => focusCell(0));
+  root.querySelector("#team-prev").addEventListener("click", () => nav(-1));
+  root.querySelector("#team-next").addEventListener("click", () => nav(1));
   closeBtn.addEventListener("click", () => onExit && onExit());
 
   return { open, close, nav, isOpen: () => document.body.classList.contains("mode-team"), focusCell };
