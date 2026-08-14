@@ -4,6 +4,7 @@ import { initUI } from "./ui.js";
 import { initCourse } from "./course.js";
 import { initTeam } from "./team.js";
 import { STATIONS } from "./data.js";
+import { db } from "./lib/supabase.js";
 import "./style.css";
 
 async function boot() {
@@ -479,6 +480,9 @@ setTimeout(() => {
   document.getElementById("ui-dots").classList.add("visible");
   document.getElementById("ui-hint").classList.add("visible");
 }, 1200);
+
+// Enregistre la visite de la page (Supabase) — silencieux si non configuré
+db.trackVisit();
 
   // Clickable station dots
   document.querySelectorAll(".dot").forEach((d, i) => {

@@ -1,4 +1,5 @@
 import { STATIONS, QUIZ, CHAPITRES } from "./data.js";
+import { db } from "./lib/supabase.js";
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -110,6 +111,8 @@ export function initUI() {
     state.readerIndex = i;
     state.readerOpen = true;
     const st = STATIONS[i];
+    // Leçon ouverte → on l'enregistre (Supabase, silencieux si non configuré)
+    if (st.id !== "quiz") db.trackLesson(i, st.title);
     el.readerKicker.textContent = st.kicker;
     el.readerTitle.textContent = st.title;
     el.readerBody.innerHTML = "";
@@ -260,8 +263,9 @@ export function initUI() {
   document.querySelector("#contact-open").addEventListener("click", openContact);
   document.querySelector("#contact-close").addEventListener("click", closeContact);
   contactWrap.addEventListener("click", (e) => { if (e.target === contactWrap) closeContact(); });
-  // Envoi local pour l'instant (pas de base de données) : on valide, on confirme,
-  // et la liaison serveur sera branchée plus tard.
+  // Envoi du formulaire : enregistré dans Supabase (table contact_messages).
+  // Si la base n'est pas configurée (.env absent), on garde une simulation locale
+  // pour que le site reste utilisable en démonstration.
   contactForm.addEventListener("submit", (e) => {
     e.preventDefault();
     if (contactSending) return;
@@ -280,13 +284,24 @@ export function initUI() {
     contactSending = true;
     contactStatus.classList.remove("ok", "err");
     contactStatus.textContent = "Envoi en cours…";
-    setTimeout(() => {
+    const payload = {
+      name: contactName.value.trim(),
+      email: contactEmail.value.trim(),
+      message: contactMessage.value.trim(),
+    };
+    db.sendContact(payload).then((sent) => {
       contactSending = false;
-      contactStatus.classList.add("ok");
-      contactStatus.textContent = "Merci, votre message est bien parti.";
-      contactForm.reset();
-      setTimeout(closeContact, 2200);
-    }, 750);
+      if (sent || !db.configured) {
+        // Envoyé (ou base non configurée : simulation locale)
+        contactStatus.classList.add("ok");
+        contactStatus.textContent = "Merci, votre message est bien parti.";
+        contactForm.reset();
+        setTimeout(closeContact, 2200);
+      } else {
+        contactStatus.classList.add("err");
+        contactStatus.textContent = "L'envoi a échoué, veuillez réessayer dans un instant.";
+      }
+    });
   });
 
   return {
@@ -360,6 +375,8 @@ function showResult(state, el) {
   el.resultText.innerHTML = `Score : <strong>${state.score} / ${QUIZ.length}</strong> — ${msg}<br><span class="result-breakdown">${state.score} bonne${state.score > 1 ? "s" : ""} réponse${state.score > 1 ? "s" : ""} · ${wrong} à revoir</span>`;
   el.quizResult.classList.remove("hide");
   if (pct >= 70) celebrate();
+  // Résultat final → enregistré dans la base (Supabase, silencieux si non configuré)
+  db.saveQuizResult(state.score, QUIZ.length);
 }
 
 // Petite pluie de confettis aux couleurs du site quand la formation est validée
