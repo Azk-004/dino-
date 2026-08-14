@@ -18,21 +18,30 @@ import Lenis from "lenis";
    ========================================================================== */
 
 // ---------------- Données : 8 membres, nom + poste au hasard ----------------
-const FIRST = ["Awa","Jean-Marc","Fatoumata","Kofi","Aminata","Paul","Estelle","Yao","Mariam","Didier","Nadège","Sékou","Clarisse","Aubin","Grâce","Landry"];
-const LAST = ["AGOUA","KOUADIO","DIAWARA","TRAORÉ","MENSAH","BÉRÉ","N'GUESSAN","DOSSOU","OKOULÉ","HOUESSOU","BAKAYOKO","ZINSOU"];
-const ROLES = [
+const FIRST = {
+  f: ["Awa", "Fatoumata", "Aminata", "Estelle", "Mariam", "Nadège", "Clarisse", "Grâce", "Djeneba", "Salimata", "Élodie", "Bertille", "Yasmine", "Maimouna", "Aïcha", "Aurélie"],
+  m: ["Jean-Marc", "Kofi", "Paul", "Yao", "Didier", "Sékou", "Aubin", "Landry", "Marc", "Youssouf", "Thierry", "Ambroise", "Sylvain", "Boris", "Franck", "Abdoulaye"],
+};
+const LAST = ["AGOUA","KOUADIO","DIAWARA","TRAORÉ","MENSAH","BÉRÉ","N'GUESSAN","DOSSOU","OKOULÉ","HOUESSOU","BAKAYOKO","ZINSOU","KONE","DIABATÉ","GOULIBALY","KOUASSI"];
+const FEMALE_ROLES = [
   "Chargée de communication",
-  "Responsable du zonage publicitaire",
   "Ingénieure en signalétique urbaine",
-  "Directeur des affaires publiques",
   "Cheffe de projet panneautique",
-  "Consultant en mobiliers urbains",
+  "Directrice des affaires publiques",
   "Auditrice des espaces publicitaires",
-  "Coordinateur des concessions",
-  "Designer d'espace public",
-  "Gestionnaire de la régie publicitaire",
-  "Analyste du territoire",
-  "Conseiller en urbanisme commercial",
+  "Responsable du foncier publicitaire",
+  "Architecte des espaces urbains",
+  "Experte en mobilité urbaine",
+];
+const MALE_ROLES = [
+  "Chargé de communication",
+  "Ingénieur en signalétique urbaine",
+  "Chef de projet panneautique",
+  "Directeur des affaires publiques",
+  "Auditeur des espaces publicitaires",
+  "Responsable du foncier publicitaire",
+  "Architecte des espaces urbains",
+  "Expert en mobilité urbaine",
 ];
 
 const TEAM_SIZE = 8;
@@ -47,16 +56,22 @@ function shuffle(arr) {
 }
 
 function makeMembers(n = TEAM_SIZE) {
-  const firsts = shuffle(FIRST).slice(0, n);
+  const femaleFirsts = shuffle(FIRST.f);
+  const maleFirsts = shuffle(FIRST.m);
   const lasts = shuffle(LAST).slice(0, n);
-  const roles = shuffle(ROLES).slice(0, n);
-  return firsts.map((first, i) => ({
-    first,
-    last: lasts[i],
-    name: `${first} ${lasts[i]}`,
-    role: roles[i],
-    seed: (i + 1) * 2654435761 % 2147483647,
-  }));
+  const femaleRoles = shuffle(FEMALE_ROLES).slice(0, n);
+  const maleRoles = shuffle(MALE_ROLES).slice(0, n);
+  return Array.from({ length: n }, (_, i) => {
+    const g = Math.random() < 0.5 ? "f" : "m";
+    const first = g === "f" ? femaleFirsts[i] : maleFirsts[i];
+    return {
+      first,
+      last: lasts[i],
+      name: `${first} ${lasts[i]}`,
+      role: g === "f" ? femaleRoles[i] : maleRoles[i],
+      seed: (i + 1) * 2654435761 % 2147483647,
+    };
+  });
 }
 
 // ---------------- Petit RNG seedé (portraits reproductibles par membre) ------
@@ -694,6 +709,7 @@ export function initTeam({ onExit } = {}) {
     });
     activeIndex = -1;
     scroller.scrollLeft = Math.max(0, cellCenterX(0) - scroller.clientWidth / 2);
+    activeIndex = computeActive();
     updateCount();
     if (!running) {
       running = true;

@@ -15,6 +15,7 @@ import {
   buildPlanterTree, buildLaneArrow,
   buildConifer, buildManhole, buildUtilityPole, buildWire, buildTrafficCone,
   buildPond, buildDuck, buildButterfly,
+  buildPlanterBox, buildCrate, buildStreetClock,
   setLowPower, isLowPower,
 } from "./world.js";
 
@@ -22,6 +23,15 @@ export function createScene(canvas, stations) {
   const isMobile = window.innerWidth <= 760;
   setLowPower(isMobile);
   const rb = (n) => (isMobile ? Math.max(2, Math.round(n * 0.55)) : n);
+
+  // Position régulière le long du parcours + léger jitter : les éléments sont
+  // répartis uniformément (jamais en grappes), tout en gardant un aspect naturel.
+  const evenT = (i, n, jitter = 0.35) => {
+    const step = 0.94 / n;
+    return 0.03 + (i + 0.5) * step + (Math.random() - 0.5) * step * jitter;
+  };
+  // t le plus proche d'une valeur cible (pour alterner proprement les côtés)
+  const nearestT = (a, b) => 0.5 * (a + b);
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobile, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.75 : 1.5));
@@ -433,8 +443,8 @@ export function createScene(canvas, stations) {
     panels.push(panel);
     pickables.push({ mesh: panel.front, kind: "panel", index: i });
     scene.add(panel.group);
-    // Ombre de contact douce : ancre le panneau au sol
-    scene.add(buildContactShadow(panel.group.position, 6.4, 4.2));
+    // Pas d'ombre au pied des panneaux (l'ombre portée est déjà désactivée sur le panneau) :
+    // le matin, ces ombres longues se confondaient avec un faisceau lumineux.
     // Fleurs et buissons de part et d'autre de certains panneaux (perpendiculaire à la face)
     if (i % 3 === 0) {
       const latV = new THREE.Vector3(Math.cos(panel.group.rotation.y), 0, -Math.sin(panel.group.rotation.y)).normalize();
@@ -519,11 +529,10 @@ export function createScene(canvas, stations) {
   const trees = [];
   const panelT = stations.map((s, i) => 0.02 + ((i + 0.5) / N) * 0.94);
   for (let i = 0; i < rb(36); i++) {
-    let t = Math.random();
+    let t = evenT(i, rb(36));
     for (let guard = 0; guard < 8; guard++) {
-      t = Math.random();
-      // Jamais pile au niveau d'un panneau (côtés confondus, par sécurité)
       if (!panelT.some((tp) => Math.abs(tp - t) < 0.018)) break;
+      t = evenT(i, rb(36));
     }
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -537,10 +546,10 @@ export function createScene(canvas, stations) {
 
   // Conifères (sapins) : variété d'essences pour un paysage plus réel
   for (let i = 0; i < rb(14); i++) {
-    let t = Math.random();
+    let t = evenT(i, rb(14));
     for (let guard = 0; guard < 8; guard++) {
-      t = Math.random();
       if (!panelT.some((tp) => Math.abs(tp - t) < 0.02)) break;
+      t = evenT(i, rb(14));
     }
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -554,7 +563,7 @@ export function createScene(canvas, stations) {
 
   // Bancs supplémentaires, jamais devant un panneau de leçon
   for (let i = 0; i < rb(7); i++) {
-    const bt = 0.05 + Math.random() * 0.9;
+    const bt = evenT(i, rb(7), 0.25);
     if (panelT.some((tp) => Math.abs(tp - bt) < 0.015)) continue;
     const p = curve.getPointAt(bt);
     const tg = curve.getTangentAt(bt);
@@ -567,7 +576,7 @@ export function createScene(canvas, stations) {
   // ---------------- Pigeons (qui picorent sur le trottoir) ----------------
   const pigeons = [];
   for (let i = 0; i < rb(12); i++) {
-    const t = 0.04 + Math.random() * 0.92;
+    const t = evenT(i, rb(12), 0.3);
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
     const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
@@ -633,7 +642,7 @@ export function createScene(canvas, stations) {
 
   // ---------------- Bicycles (vélos stationnés près des bancs) ----------------
   for (let i = 0; i < rb(8); i++) {
-    const t = 0.06 + Math.random() * 0.88;
+    const t = evenT(i, rb(8), 0.3);
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
     const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
@@ -689,7 +698,7 @@ export function createScene(canvas, stations) {
 
   // ---------------- Hedges (haies basses au bord du trottoir, hors des plinthes) ----------------
   for (let i = 0; i < rb(8); i++) {
-    const t = 0.08 + Math.random() * 0.84;
+    const t = evenT(i, rb(8), 0.3);
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
     const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
@@ -758,6 +767,20 @@ export function createScene(canvas, stations) {
     }
     scene.add(buildTree(pos.clone().add(new THREE.Vector3(-3.4, 0, 1.4)), 1.3));
     scene.add(buildTree(pos.clone().add(new THREE.Vector3(3.2, 0, -1.2)), 1.2));
+    // Pigeons qui se désaltèrent autour du bassin
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + 0.7;
+      const pg = buildPigeon();
+      pg.position.set(pos.x + Math.cos(a) * 2.2, 0, pos.z + Math.sin(a) * 2.2);
+      const pp = pg.position;
+      pigeons.push({
+        g: pg, phase: Math.random() * Math.PI * 2, x0: pp.x, z0: pp.z,
+        fx: Math.cos(a), fz: Math.sin(a),
+        state: 0, timer: 0, idx: pigeons.length,
+      });
+      pickables.push({ mesh: pg.userData.body, kind: "pigeon", index: pigeons.length - 1 });
+      scene.add(pg);
+    }
     // Étal de marché (enseigne qui s'illumine la nuit)
     const stallPos = pos.clone().add(new THREE.Vector3(3.9, 0, -3.4));
     const stall = buildMarketStall(stallPos, Math.atan2(tg.x, tg.z) + Math.PI);
@@ -765,6 +788,10 @@ export function createScene(canvas, stations) {
     pickables.push({ mesh: stall.userData.sign, kind: "stall", tip: "Étal de marché — un commerce de proximité sur la place." });
     scene.add(stall);
     scene.add(buildContactShadow(stallPos, 2.6, 1.4));
+    // Caisses de fruits et légumes à côté de l'étal
+    scene.add(buildCrate(stallPos.clone().add(new THREE.Vector3(0.9, 0, 1.2)), Math.PI * 0.6, 1));
+    scene.add(buildCrate(stallPos.clone().add(new THREE.Vector3(-1.1, 0, 0.8)), Math.PI * 1.3, 3));
+    scene.add(buildCrate(stallPos.clone().add(new THREE.Vector3(0.2, 0, -1.3)), Math.PI * 2.1, 0));
   }
 
   // ---------------- Étang du parc (canards, nénuphars, arbres) ----------------
@@ -918,6 +945,33 @@ export function createScene(canvas, stations) {
     scene.add(pt);
   });
 
+  // Jardinières de rue fleuries : alignées entre les arbres en bac, jamais devant
+  // un panneau de leçon, les deux côtés alternés.
+  const planterBoxN = isMobile ? 3 : 9;
+  for (let i = 0; i < planterBoxN; i++) {
+    const t = evenT(i, planterBoxN, 0.2);
+    if (panelT.some((tp) => Math.abs(tp - t) < 0.02)) continue;
+    const p = curve.getPointAt(t);
+    const tg = curve.getTangentAt(t);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = i % 2 === 0 ? 1 : -1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * 5.0));
+    const angle = Math.atan2(perp.x, perp.z) + (side > 0 ? Math.PI : 0);
+    scene.add(buildPlanterBox(pos, angle, i * 5));
+  }
+
+  // Horloges de ville sur pied (une près de la fontaine, une près du kiosque)
+  for (const ct of [0.34, 0.62]) {
+    const p = curve.getPointAt(ct);
+    const tg = curve.getTangentAt(ct);
+    const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+    const side = ct < 0.5 ? -1 : 1;
+    const pos = p.clone().add(perp.clone().multiplyScalar(side * 8.2));
+    const angle = Math.atan2(perp.x, perp.z) + (side > 0 ? Math.PI : 0);
+    scene.add(buildStreetClock(pos, angle));
+    scene.add(buildContactShadow(pos, 1.4, 1.4));
+  }
+
   // Voitures stationnées le long de la chaussée (à mi-chemin des panneaux), les deux côtés
   const parkedT = isMobile ? [midOf(7, 8)] : [midOf(1, 2), midOf(3, 4), midOf(5, 6), midOf(7, 8), midOf(9, 10), midOf(11, 12)];
   parkedT.forEach((t, i) => {
@@ -987,6 +1041,10 @@ export function createScene(canvas, stations) {
     pickables.push({ mesh: stall2.userData.sign, kind: "stall", tip: "Étal de marché — un commerce de proximité sur la place." });
     scene.add(stall2);
     scene.add(buildContactShadow(pos, 2.6, 1.4));
+    // Caisses de marché autour du second étal
+    scene.add(buildCrate(pos.clone().add(new THREE.Vector3(1.0, 0, 1.0)), 0.8, 2));
+    scene.add(buildCrate(pos.clone().add(new THREE.Vector3(-0.9, 0, -1.1)), 2.4, 1));
+    scene.add(buildCrate(pos.clone().add(new THREE.Vector3(0.4, 0, -1.6)), 4.2, 0));
   }
 
   // ---------------- Passants animés (marchent le long des trottoirs) ----------------
@@ -1004,7 +1062,7 @@ export function createScene(canvas, stations) {
       legL: person.legL, legR: person.legR, kneeL: person.kneeL, kneeR: person.kneeR,
       armL: person.armL, armR: person.armR, elbowL: person.elbowL, elbowR: person.elbowR,
       lean: person.lean,
-      t: 0.02 + Math.random() * 0.96,
+      t: evenT(i, WALKER_COUNT, 0.35),
       speed: (isKid ? 0.009 : 0.004 + Math.random() * 0.005) * dir,
       side, off: 3.0 + Math.random() * 0.9, phase: person.phase,
       step: 0,
@@ -1018,7 +1076,7 @@ export function createScene(canvas, stations) {
     const dir = Math.random() > 0.5 ? 1 : -1;
     const side = Math.random() > 0.5 ? 1 : -1;
     dogs.push({
-      g: dog, t: 0.08 + Math.random() * 0.84,
+      g: dog, t: evenT(i, isMobile ? 1 : 3, 0.3),
       speed: (0.006 + Math.random() * 0.004) * dir,
       side, off: 3.4 + Math.random() * 0.9,
       phase: Math.random() * Math.PI * 2, step: 0,
@@ -1028,7 +1086,7 @@ export function createScene(canvas, stations) {
 
   // ---------------- Dunes & rocks ----------------
   for (let i = 0; i < rb(38); i++) {
-    const t = Math.random();
+    const t = evenT(i, rb(38), 0.4);
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
     const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
@@ -1041,7 +1099,7 @@ export function createScene(canvas, stations) {
   // ---------------- Palms & bushes ----------------
   const palms = [];
   for (let i = 0; i < rb(30); i++) {
-    const t = Math.random();
+    const t = evenT(i, rb(30), 0.35);
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
     const perp = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
@@ -1052,11 +1110,11 @@ export function createScene(canvas, stations) {
     scene.add(palm);
   }
   for (let i = 0; i < rb(66); i++) {
-    let t = Math.random();
+    let t = evenT(i, rb(66), 0.3);
     // Jamais devant un panneau de leçon (ils sont reculés à ~7,4 m)
     for (let guard = 0; guard < 8; guard++) {
-      t = Math.random();
       if (!panelT.some((tp) => Math.abs(tp - t) < 0.012)) break;
+      t = evenT(i, rb(66), 0.3);
     }
     const p = curve.getPointAt(t);
     const tg = curve.getTangentAt(t);
@@ -1135,7 +1193,7 @@ export function createScene(canvas, stations) {
   const leaves = [];
   for (let i = 0; i < rb(30); i++) {
     const leaf = buildLeaf();
-    const lt = Math.random();
+    const lt = evenT(i, rb(30), 0.4);
     const lp = curve.getPointAt(lt);
     const ltg = curve.getTangentAt(lt);
     const lpe = new THREE.Vector3(-ltg.z, 0, ltg.x).normalize();

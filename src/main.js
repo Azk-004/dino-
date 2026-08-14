@@ -160,19 +160,24 @@ setInterval(() => {
 // ---------------- Scroll length ----------------
 const UNITS = N + 2; // intro + stations + outro
 const scrollEl = document.getElementById("scroll");
+// Un écran se franchit avec une fraction de la hauteur de vue (léger scroll) :
+// ~0.5× la hauteur sur mobile, ~0.7× sur desktop — un léger geste suffit.
+function screenSpacing() {
+  return window.innerWidth <= 760 ? 0.5 : 0.7;
+}
 function layout() {
-  const total = UNITS * window.innerHeight;
+  const total = UNITS * window.innerHeight * screenSpacing();
   scrollEl.style.height = total + "px";
 }
 layout();
 
 // ---------------- Lenis + ScrollTrigger ----------------
 const lenis = new Lenis({
-  duration: 1.32,
+  duration: window.innerWidth <= 760 ? 0.9 : 1.0,
   smoothWheel: true,
   easing: (t) => 1 - Math.pow(1 - t, 3),
-  touchMultiplier: 1.5,
-  wheelMultiplier: 1.05,
+  touchMultiplier: window.innerWidth <= 760 ? 2.0 : 1.5,
+  wheelMultiplier: 1.15,
 });
 
 const courseMainEl = document.querySelector("#ui-course .course-main");
@@ -288,7 +293,7 @@ window.addEventListener("keydown", (e) => {
       return;
     }
   }
-  const step = window.innerHeight;
+  const step = window.innerHeight * screenSpacing();
   if (e.key === "ArrowDown" || e.key === "PageDown") {
     e.preventDefault();
     lenis.scrollTo(window.scrollY + step, { duration: 1.1 });

@@ -217,14 +217,14 @@ export function buildPanel(st, curve, t, side, index) {
   frameMat.emissiveIntensity = 0;
   const frame = new THREE.Mesh(new THREE.BoxGeometry(6.6, 4.4, 0.22), frameMat);
   frame.position.y = 3.0;
-  frame.castShadow = true;
+  frame.castShadow = false;
   group.add(frame);
 
   // Socle en pierre (ancrage réaliste du panneau au sol)
   const plinthMat = new THREE.MeshStandardMaterial({ color: 0xb7a47e, roughness: 0.92 });
   const plinth = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.4, 0.8), plinthMat);
   plinth.position.y = 0.2;
-  plinth.castShadow = true;
+  plinth.castShadow = false;
   group.add(plinth);
 
   // Jardinières fleuries au pied du panneau
@@ -268,7 +268,7 @@ export function buildPanel(st, curve, t, side, index) {
   for (const sx of [-2.5, 2.5]) {
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.8, 0.32), postMat);
     post.position.set(sx, 0.4, 0);
-    post.castShadow = true;
+    post.castShadow = false;
     group.add(post);
   }
 
@@ -285,6 +285,9 @@ export function buildPanel(st, curve, t, side, index) {
   // l'émissive chaude : le texte brille, la face reste sombre — jamais blanche, toujours lisible.
   const frontMat = new THREE.MeshLambertMaterial({
     map: dayTex,
+    // Parchemin mat, nettement assombri : le soleil du matin (intensité 2.2) ne
+    // « cramé » plus la face. La nuit repose sur l'émissif (indépendant du color).
+    color: 0x948d74,
   });
   frontMat.emissive = new THREE.Color(0xf0cf90);
   frontMat.emissiveIntensity = 0;
@@ -324,7 +327,11 @@ function makePanelTex(st, index, cw, ch, night) {
   const canvas = document.createElement("canvas");
   canvas.width = cw;
   canvas.height = ch;
-  drawPanelCanvas(canvas.getContext("2d"), st, index, cw, ch, night);
+  try {
+    drawPanelCanvas(canvas.getContext("2d"), st, index, cw, ch, night);
+  } catch (err) {
+    console.error("[panelTex]", index, night, err && err.stack ? err.stack : err);
+  }
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = LOW ? 2 : 8;
@@ -397,6 +404,7 @@ function drawPanelCanvas(ctx, st, index, cw = 1024, ch = 660, night = false) {
     const tStep = Math.round(fit.size * 1.1);
     fit.lines.forEach((ln) => { ctx.fillText(ln, 64, y); y += tStep; });
     ctx.restore();
+    ctx.textAlign = "left";
     y += 14;
 
     if (st.id !== "quiz" && st.bullets.length) {
@@ -527,6 +535,7 @@ function drawPanelCanvas(ctx, st, index, cw = 1024, ch = 660, night = false) {
   const tStep = Math.round(fit.size * 1.1);
   fit.lines.forEach((ln) => { ctx.fillText(ln, 64, y); y += tStep; });
   inkEnd();
+  ctx.textAlign = "left";
   y += 14;
 
   if (st.id !== "quiz" && st.bullets.length) {
@@ -1147,6 +1156,105 @@ export function buildFlowers(pos, scale = 1, seed = 0) {
   }
   g.position.copy(pos);
   g.scale.setScalar(scale);
+  return g;
+}
+
+// Jardinière de rue : bac en bois avec terre + fleurs (mobilier urbain fleuri)
+export function buildPlanterBox(pos, rot = 0, flowerSeed = 0) {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshStandardMaterial({ color: 0x7a5c3e, roughness: 0.9, flatShading: true });
+  const box = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 0.7), wood);
+  box.position.y = 0.25;
+  box.castShadow = true;
+  g.add(box);
+  const soil = new THREE.Mesh(
+    new THREE.BoxGeometry(0.95, 0.07, 0.55),
+    new THREE.MeshStandardMaterial({ color: 0x4a3624, roughness: 1 })
+  );
+  soil.position.y = 0.52;
+  g.add(soil);
+  g.add(buildFlowers(new THREE.Vector3(0, 0.5, 0), 1, flowerSeed));
+  g.position.copy(pos);
+  g.rotation.y = rot;
+  return g;
+}
+
+// Caisse de marché : bois + fruits (épicerie de plein air près des étals)
+export function buildCrate(pos, rot = 0, fruit = 0xc9a24a) {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshStandardMaterial({ color: 0x8a6a44, roughness: 0.9, flatShading: true });
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.5), wood);
+  box.position.y = 0.2;
+  box.castShadow = true;
+  g.add(box);
+  const fruitMat = new THREE.MeshStandardMaterial({ color: fruit, roughness: 0.5 });
+  const fruits = [0xc9a24a, 0xb0483a, 0x6f7f56, 0xd98a6a];
+  for (let i = 0; i < 5; i++) {
+    const f = new THREE.Mesh(
+      new THREE.SphereGeometry(0.07, 6, 5),
+      new THREE.MeshStandardMaterial({ color: fruits[(i + Math.round(fruit)) % fruits.length], roughness: 0.5 })
+    );
+    f.position.set((i % 3) * 0.16 - 0.16, 0.44, Math.floor(i / 3) * 0.14 - 0.07);
+    g.add(f);
+  }
+  g.position.copy(pos);
+  g.rotation.y = rot;
+  return g;
+}
+
+// Horloge de ville sur pied (deux faces, aiguilles réelles)
+function clockFaceTexture() {
+  const c = document.createElement("canvas");
+  c.width = 256; c.height = 256;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#f6eeda";
+  ctx.beginPath(); ctx.arc(128, 128, 118, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#8a6a4e"; ctx.lineWidth = 10;
+  ctx.beginPath(); ctx.arc(128, 128, 118, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = "#6b4a2c"; ctx.lineWidth = 6; ctx.lineCap = "round";
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(128 + Math.cos(a) * 94, 128 + Math.sin(a) * 94);
+    ctx.lineTo(128 + Math.cos(a) * 110, 128 + Math.sin(a) * 110);
+    ctx.stroke();
+  }
+  const now = new Date();
+  const ha = ((now.getHours() % 12) + now.getMinutes() / 60) * (Math.PI * 2 / 12) - Math.PI / 2;
+  const ma = (now.getMinutes() / 60) * Math.PI * 2 - Math.PI / 2;
+  ctx.strokeStyle = "#241a0e"; ctx.lineWidth = 11;
+  ctx.beginPath(); ctx.moveTo(128, 128); ctx.lineTo(128 + Math.cos(ha) * 54, 128 + Math.sin(ha) * 54); ctx.stroke();
+  ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(128, 128); ctx.lineTo(128 + Math.cos(ma) * 82, 128 + Math.sin(ma) * 82); ctx.stroke();
+  ctx.fillStyle = "#b96a45";
+  ctx.beginPath(); ctx.arc(128, 128, 8, 0, Math.PI * 2); ctx.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+export function buildStreetClock(pos, rot = 0) {
+  const g = new THREE.Group();
+  const iron = new THREE.MeshStandardMaterial({ color: 0x4a3a26, roughness: 0.7, metalness: 0.4 });
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 3.6, 8), iron);
+  pole.position.y = 1.8;
+  pole.castShadow = true;
+  g.add(pole);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.75, 12), iron);
+  body.position.y = 3.5;
+  g.add(body);
+  const finial = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 10), iron);
+  finial.position.y = 4.05;
+  g.add(finial);
+  const faceMat = new THREE.MeshStandardMaterial({ map: clockFaceTexture(), roughness: 0.4 });
+  const faceP = new THREE.Mesh(new THREE.CircleGeometry(0.27, 22), faceMat);
+  faceP.position.set(0, 3.5, 0.34);
+  const faceN = faceP.clone();
+  faceN.position.z = -0.34;
+  faceN.rotation.y = Math.PI;
+  g.add(faceP, faceN);
+  g.position.copy(pos);
+  g.rotation.y = rot;
   return g;
 }
 
