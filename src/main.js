@@ -39,6 +39,11 @@ function setMode(mode) {
   const isJourney = mode === "journey";
   const isCourse = mode === "course";
   const isTeam = mode === "team";
+  // Le cours illustré est une leçon : il exige un compte débloqué (code vérifié)
+  if (isCourse && !ui.accessGranted()) {
+    ui.openAuth();
+    return;
+  }
   if (course.isOpen()) course.close();
   if (team.isOpen()) team.close();
   // Quitter le questionnaire avant d'entrer en mode cours : la page doit rester déverrouillée
@@ -341,7 +346,9 @@ window.addEventListener("click", (e) => {
   if (course.isOpen()) return;
   if (ui.isReaderOpen()) return;
   if (ui.quizOpen()) return; // questionnaire ouvert : les clics lui appartiennent
-  if (e.target.closest && e.target.closest("#ui")) return;
+  // Les panneaux modaux (compte, contact) et l'interface #ui ne déclenchent jamais
+  // d'interaction sur la scène 3D derrière eux.
+  if (e.target.closest && e.target.closest("#ui, #ui-auth, #ui-contact")) return;
   const { nx, ny } = toNDC(e);
   const hit = scene.pick(nx, ny);
   if (!hit) return;
@@ -434,6 +441,9 @@ window.__panneautique = {
   closeCourse: () => setMode("journey"),
   openTeam: () => setMode("team"),
   closeTeam: () => setMode("journey"),
+  openAuth: ui.openAuth,
+  closeAuth: ui.closeAuth,
+  isAuthOpen: () => ui.isAuthOpen(),
   pickAt: (cx, cy) => {
     const hit = scene.pick((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
     return hit ? { kind: hit.kind, index: hit.index, tip: hit.tip } : null;

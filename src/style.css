@@ -252,6 +252,31 @@ body::after {
   border-color: var(--amber);
   background: rgba(253, 250, 242, 0.98);
 }
+/* Bouton Compte : comme Contact, action secondaire du bandeau, cliquable.
+   NB : le bandeau #ui est en pointer-events:none — sans auto, ce bouton ne répond pas. */
+#auth-open.auth-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--bronze-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: rgba(253, 250, 242, 0.75);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+  transition: all 0.25s ease;
+}
+#auth-open.auth-btn .auth-icon {
+  width: 13px; height: 13px;
+  flex-shrink: 0;
+}
+#auth-open.auth-btn .auth-label-short { display: none; }
+#auth-open.auth-btn:hover {
+  color: var(--ink);
+  border-color: var(--amber);
+  background: rgba(253, 250, 242, 0.98);
+}
 #ui-progress {
   flex: 1; height: 4px; background: rgba(122, 95, 56, 0.16);
   border-radius: 4px; overflow: hidden; margin-left: auto; max-width: 300px;
@@ -264,7 +289,8 @@ body::after {
 
 /* Taps propres sur mobile (aucun impact sur le layout desktop) */
 .mode-btn, .dot, .card-open, .quiz-opt, .result-btn, .reader-nav-btn, .reader-close,
-.reader-quiz-btn, .course-close, .course-cta, .toc-item, #course-toc-select, .tsize-btn {
+.reader-quiz-btn, .course-close, .course-cta, .toc-item, #course-toc-select, .tsize-btn,
+.g-btn, .g-link, .g-code-input {
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -1416,6 +1442,12 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
     flex: 1; min-height: 38px;
     padding: 7px 10px; font-size: 11px; letter-spacing: 0.07em;
   }
+  /* Bouton Compte sur mobile : libellé court (« Compte ») pour tenir sur la
+     rangée du haut à côté du bouton Contact. */
+  #auth-open.auth-btn .auth-label-full { display: none; }
+  #auth-open.auth-btn .auth-label-short { display: inline; }
+  #auth-open.auth-btn { padding: 9px 13px; font-size: 11px; letter-spacing: 0.08em; gap: 6px; }
+  #auth-open.auth-btn .auth-icon { width: 12px; height: 12px; }
   /* Équipe : bandeau sur une seule ligne (marque + flèches/compteur + fermer),
      sans repli sur une deuxième rangée. Le libellé long du bouton fermer est
      remplacé par une version courte réservée au mobile. */
@@ -1629,6 +1661,13 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
   #ui-quiz { padding-top: 84px; }
 }
 
+/* Panneau compte sur très petits écrans : padding réduit */
+@media (max-width: 480px) {
+  .auth-panel { padding: 30px 22px 26px; max-height: 84vh; }
+  .auth-title { font-size: 24px; }
+  .g-title { font-size: 23px; }
+}
+
 /* Safe areas iOS (encoches / barres de gestes) */
 @supports (padding: max(0px)) {
   #ui-topbar { padding-top: calc(20px + env(safe-area-inset-top)); }
@@ -1651,6 +1690,219 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
   }
 }
 
+/* ---------- Espace personnel : connexion / inscription ---------- */
+.auth-wrap {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  /* Pleine page (comme la page de connexion Google) : fond opaque, aucun
+     aperçu du parcours derrière — la page ne « disparaît » pas, elle attend. */
+  background:
+    radial-gradient(130% 100% at 50% 0%, rgba(255, 248, 228, 0.95), transparent 60%),
+    linear-gradient(180deg, #f2e6cb, #ddc59a);
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+  pointer-events: none;
+  z-index: 90;
+}
+.auth-wrap.show { opacity: 1; visibility: visible; pointer-events: auto; }
+.auth-panel {
+  width: min(440px, 92vw); max-height: 88vh; overflow-y: auto;
+  overscroll-behavior: contain;
+  position: relative;
+  padding: 40px 44px 36px;
+  border: 1px solid rgba(201, 143, 78, 0.45);
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 248, 228, 0.95), transparent 55%),
+    linear-gradient(180deg, #f9f3e4, #efe3cb);
+  box-shadow: var(--shadow-warm);
+}
+.auth-close {
+  position: absolute; top: 14px; right: 18px;
+  background: none; border: none;
+  font-size: 26px; line-height: 1; color: var(--bronze-2);
+  cursor: pointer; padding: 4px 8px;
+}
+.auth-close:hover { color: var(--ink); }
+.auth-kicker {
+  font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--bronze-2);
+}
+.auth-title { margin: 8px 0 0; font-size: 28px; color: var(--ink); }
+.auth-rule {
+  width: 54px; height: 3px; margin: 16px 0 22px;
+  background: linear-gradient(90deg, var(--bronze), var(--terracotta));
+  border-radius: 3px;
+}
+/* --- Assistant de connexion : email → code à 4 chiffres (sans mot de passe) --- */
+.g-wizard { display: grid; text-align: left; }
+/* L'attribut hidden doit toujours l'emporter sur ces display (sinon les deux
+   panneaux « compte » et « connexion » s'affichent en même temps). */
+.auth-signedin[hidden], .g-wizard[hidden], .auth-step[hidden] {
+  display: none;
+}
+.g-brand {
+  display: flex; align-items: center; gap: 11px;
+  margin-bottom: 28px;
+}
+.g-brand .brand-mark { width: 13px; height: 13px; }
+.g-brand-name {
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--bronze-2);
+}
+.g-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(24px, 3vw, 30px);
+  line-height: 1.15;
+  color: var(--ink);
+}
+.g-sub {
+  margin: 10px 0 24px;
+  font-size: 14.5px; line-height: 1.65;
+  color: var(--ink-2);
+}
+.g-sub strong { font-weight: 600; }
+.g-email { color: var(--sand); font-weight: 600; }
+.g-field { display: grid; gap: 7px; }
+.g-field > span {
+  font-size: 12.5px; letter-spacing: 0.04em;
+  color: var(--walnut);
+}
+.g-field input {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 15.5px; color: var(--ink);
+  padding: 12px 14px;
+  border: 1px solid rgba(140, 112, 72, 0.38);
+  border-radius: 10px;
+  background: rgba(255, 252, 242, 0.95);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.g-field input:focus {
+  border-color: var(--bronze);
+  box-shadow: 0 0 0 3px rgba(201, 143, 78, 0.18);
+}
+.g-field + .g-field { margin-top: 14px; }
+.g-actions {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 24px;
+}
+.g-link {
+  font-family: var(--sans);
+  font-size: 13.5px; font-weight: 600; letter-spacing: 0.03em;
+  color: var(--bronze);
+  background: none; border: none;
+  cursor: pointer; padding: 8px 4px;
+  border-radius: 8px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+.g-link:hover { color: var(--ink); background: rgba(201, 143, 78, 0.12); }
+.g-link-accent { color: var(--terracotta); font-weight: 700; }
+.g-btn {
+  font-family: var(--sans);
+  font-size: 14px; font-weight: 600; letter-spacing: 0.03em;
+  color: #fff9ef;
+  padding: 12px 26px;
+  border: none; border-radius: 999px;
+  background: var(--btn-grad);
+  box-shadow: 0 8px 18px rgba(180, 120, 70, 0.28);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  min-width: 108px;
+}
+.g-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(180, 120, 70, 0.36); }
+.g-btn:active { transform: translateY(0); }
+.g-btn:disabled { opacity: 0.55; cursor: default; transform: none; box-shadow: none; }
+
+/* Étape code : 4 cases à remplir */
+.g-code {
+  display: flex; gap: 12px;
+  justify-content: center;
+  margin: 26px 0 6px;
+}
+.g-code-input {
+  width: 58px; height: 66px;
+  text-align: center;
+  font-family: var(--serif);
+  font-size: 28px; font-weight: 700; color: var(--ink);
+  background: rgba(255, 252, 242, 0.95);
+  border: 1.5px solid rgba(140, 112, 72, 0.4);
+  border-radius: 12px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+.g-code-input:focus {
+  border-color: var(--bronze);
+  box-shadow: 0 0 0 3px rgba(201, 143, 78, 0.2);
+  transform: translateY(-1px);
+}
+.g-code-input.filled {
+  border-color: var(--amber);
+  background: rgba(255, 248, 228, 0.95);
+}
+.g-resend {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; margin-top: 16px;
+  font-size: 13.5px; color: var(--ink-2);
+}
+.g-timer { font-variant-numeric: tabular-nums; color: var(--bronze-2); }
+
+@media (max-width: 480px) {
+  .g-code { gap: 8px; }
+  .g-code-input { width: 52px; height: 58px; font-size: 24px; }
+  .g-btn { min-width: 96px; padding: 12px 20px; }
+}
+.auth-status { min-height: 18px; font-size: 13px; line-height: 1.5; color: var(--walnut); }
+.auth-status.ok { color: #5d7a4a; }
+.auth-status.err { color: #a0503a; }
+.auth-signedin { display: grid; gap: 20px; }
+
+.auth-user {
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: rgba(255, 252, 242, 0.75);
+}
+.auth-avatar {
+  width: 46px; height: 46px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  font-family: var(--serif); font-size: 20px; font-weight: 600;
+  color: var(--ink);
+  background: linear-gradient(135deg, #e8d7b0, #d5ab7e);
+  border: 1px solid rgba(201, 143, 78, 0.4);
+}
+.auth-user-label {
+  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--bronze-2);
+}
+.auth-user-email {
+  margin-top: 3px;
+  font-size: 15px; font-weight: 600;
+  color: var(--ink);
+  word-break: break-all;
+}
+.auth-signout {
+  padding: 12px 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  color: var(--bronze-2);
+  background: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.auth-signout:hover { color: var(--ink); border-color: var(--amber); background: rgba(253, 250, 242, 0.7); }
+.auth-signout, #auth-open, .g-btn, .g-link, .g-code-input {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ---------- Formulaire de contact ---------- */
 .contact-wrap {
   position: fixed; inset: 0;
@@ -1666,6 +1918,7 @@ html.team-lock, html.team-lock body { overflow: hidden; overscroll-behavior: non
 .contact-wrap.show { opacity: 1; visibility: visible; pointer-events: auto; }
 .contact-panel {
   width: min(460px, 92vw); max-height: 88vh; overflow-y: auto;
+  overscroll-behavior: contain;
   position: relative;
   padding: 40px 44px 36px;
   border: 1px solid rgba(201, 143, 78, 0.45);

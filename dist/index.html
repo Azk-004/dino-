@@ -6,8 +6,8 @@
     <meta name="description" content="Formation sur la panneautique — Domaine public. Module 1 : parcours interactif en 3D." />
     <title>Panneautique — Parcours interactif.</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23f0e6cf'/%3E%3Crect x='18' y='24' width='64' height='48' rx='4' fill='none' stroke='%23c98f4e' stroke-width='4'/%3E%3Crect x='44' y='72' width='12' height='14' fill='%23b96a45'/%3E%3C/svg%3E" />
-    <script type="module" crossorigin src="/assets/index-CwXfdMx5.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-ButRYdP0.css">
+    <script type="module" crossorigin src="/assets/index-CBGbY5RC.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CTmrz8YY.css">
   </head>
   <body>
     <div id="app"></div>
@@ -35,6 +35,7 @@
           <button id="mode-course-btn" class="mode-btn">Cours illustré</button>
           <button id="mode-team-btn" class="mode-btn">L'équipe</button>
         </div>
+        <button id="auth-open" class="mode-btn auth-btn" title="Créer un compte ou se connecter"><svg class="auth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg><span class="auth-label-full">Se connecter</span><span class="auth-label-short">Compte</span></button>
         <button id="contact-open" class="mode-btn contact-btn" title="Nous contacter">Contact</button>
         <div id="ui-progress">
           <div id="ui-progress-fill"></div>
@@ -114,10 +115,73 @@
       </div>
     </div>
 
+    <div id="ui-auth" class="auth-wrap" aria-hidden="true">
+      <div class="auth-panel" data-lenis-prevent>
+        <button id="auth-close" class="auth-close" aria-label="Fermer">×</button>
+
+        <div id="auth-signedin" class="auth-signedin" hidden>
+          <div class="auth-kicker">Espace personnel</div>
+          <h2 class="auth-title">Mon compte</h2>
+          <div class="auth-rule"></div>
+          <div class="auth-user">
+            <div class="auth-avatar"><span id="auth-avatar-letter"></span></div>
+            <div class="auth-user-info">
+              <div class="auth-user-label">Connecté en tant que</div>
+              <div id="auth-user-email" class="auth-user-email"></div>
+            </div>
+          </div>
+          <button id="auth-signout" class="auth-signout">Se déconnecter</button>
+        </div>
+
+        <!-- Assistant de connexion : email → code à 4 chiffres (aucun mot de passe) -->
+        <div id="auth-wizard" class="g-wizard">
+          <div class="g-brand">
+            <span class="brand-mark"></span>
+            <span class="g-brand-name">Panneautique</span>
+          </div>
+
+          <section class="auth-step" data-step="email">
+            <h2 class="g-title">Se connecter</h2>
+            <p class="g-sub">Utilisez votre compte Panneautique pour accéder à la formation. Un code à 4 chiffres vous sera envoyé par email.</p>
+            <label class="g-field">
+              <span>Adresse email</span>
+              <input id="auth-email" name="email" type="email" autocomplete="email" placeholder="exemple@mail.com" />
+            </label>
+            <div class="g-actions">
+              <button id="auth-create" class="g-link" type="button">Créer un compte</button>
+              <button id="auth-next-email" class="g-btn" type="button">Suivant</button>
+            </div>
+            <div id="auth-status-email" class="auth-status" role="status"></div>
+          </section>
+
+          <section class="auth-step" data-step="code" hidden>
+            <h2 class="g-title">Vérification</h2>
+            <p class="g-sub">Un code à 4 chiffres a été envoyé à <strong id="auth-code-email" class="g-email"></strong>. Saisissez-le pour accéder à la formation.</p>
+            <div class="g-code" role="group" aria-label="Code à 4 chiffres">
+              <input class="g-code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Chiffre 1" />
+              <input class="g-code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Chiffre 2" />
+              <input class="g-code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Chiffre 3" />
+              <input class="g-code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Chiffre 4" />
+            </div>
+            <div class="g-actions">
+              <button id="auth-back-code" class="g-link" type="button">Modifier l'email</button>
+              <button id="auth-verify-code" class="g-btn" type="button">Vérifier</button>
+            </div>
+            <div class="g-resend">
+              <span class="g-resend-text">Vous n'avez rien reçu ?</span>
+              <button id="auth-resend" class="g-link" type="button">Renvoyer le code</button>
+              <span id="auth-resend-timer" class="g-timer" hidden>dans 60 s</span>
+            </div>
+            <div id="auth-status-code" class="auth-status" role="status"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+
     <div id="ui-toast"></div>
 
     <div id="ui-contact" class="contact-wrap" aria-hidden="true">
-      <div class="contact-panel">
+      <div class="contact-panel" data-lenis-prevent>
         <button id="contact-close" class="contact-close" aria-label="Fermer">×</button>
         <div class="contact-kicker">Une question, une remarque ?</div>
         <h2 class="contact-title">Écrivez-nous.</h2>

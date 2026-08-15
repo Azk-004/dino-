@@ -34,6 +34,183 @@ function warn(label, err) {
   console.warn(`[supabase] ${label} :`, err?.message || err);
 }
 
+/* ==========================================================================
+   Authentification (Supabase Auth — email + mot de passe).
+   Création de compte / connexion / déconnexion. Les comptes sont gérés par
+   Supabase (auth.users) et chaque inscription crée automatiquement une fiche
+   dans public.profiles (voir supabase/migrations).
+   ========================================================================== */
+
+function authError(message) {
+  return { message };
+}
+
+// Compte administrateur : connexion directe sans code à 4 chiffres (voir aussi
+// la constante ADMIN_EMAIL de l'Edge Function).
+export const ADMIN_EMAIL = "aurelazk004@gmail.com";
+
+/* Appel à l'Edge Function `login-code` (création / envoi / vérification du
+   code à 4 chiffres). Aucune session requise : le code reçu par email fait
+   foi. Si une session existe, on transmet son jeton (inutile mais sans effet). */
+async function callEdge(action, payload = {}) {
+  const c = getClient();
+  if (!c) return { ok: false, error: authError("Supabase non configuré") };
+  try {
+    const { data } = await c.auth.getSession();
+    const token = data?.session?.access_token;
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/login-code`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ action, ...payload }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body.ok === false) {
+      return { ok: false, error: authError(body.error || "Erreur du service de code") };
+    }
+    return body;
+  } catch (err) {
+    return { ok: false, error: authError(err.message || String(err)) };
+  }
+}
+
+async function getSession() {
+  const c = getClient();
+  if (!c) return null;
+  const { data } = await c.auth.getSession();
+  return data.session || null;
+}
+
+export const auth = {
+  configured,
+
+  /** Session courante (ou null si personne n'est connecté). */
+  async getSession() {
+    return getSession();
+  },
+
+  /** Utilisateur courant (ou null). */
+  async getUser() {
+    const s = await getSession();
+    return s ? s.user : null;
+  },
+
+  /** Inscription avec email + mot de passe. */
+  async signUp({ email, password }) {
+    const c = getClient();
+    if (!c) return { ok: false, error: authError("Supabase non configuré") };
+    try {
+      const { data, error } = await c.auth.signUp({
+        email: String(email).trim().toLowerCase(),
+        password: String(password),
+      });
+      if (error) return { ok: false, error: authError(error.message) };
+      // Si la confirmation d'email est activée dans le projet, `session` est
+      // null après l'inscription : on informe l'utilisateur de vérifier sa boîte.
+      return {
+        ok: true,
+        needsEmailConfirmation: !data.session,
+        user: data.user || null,
+      };
+    } catch (err) {
+      return { ok: false, error: authError(err.message || String(err)) };
+    }
+  },
+
+  /** Connexion avec email + mot de passe. */
+  async signIn({ email, password }) {
+    const c = getClient();
+    if (!c) return { ok: false, error: authError("Supabase non configuré") };
+    try {
+      const { data, error } = await c.auth.signInWithPassword({
+        email: String(email).trim().toLowerCase(),
+        password: String(password),
+      });
+      if (error) return { ok: false, error: authError(error.message) };
+      return { ok: true, session: data.session, user: data.user || null };
+    } catch (err) {
+      return { ok: false, error: authError(err.message || String(err)) };
+    }
+  },
+
+  /** Déconnexion. */
+  async signOut() {
+    const c = getClient();
+    if (!c) return { ok: true };
+    try {
+      const { error } = await c.auth.signOut();
+      return { ok: !error, error: error ? authError(error.message) : null };
+    } catch (err) {
+      return { ok: false, error: authError(err.message || String(err)) };
+    }
+  },
+
+  /** Écoute les changements d'état (connexion / déconnexion). */
+  onAuthChange(callback) {
+    const c = getClient();
+    if (!c) {
+      return () => {};
+    }
+    const { data } = c.auth.onAuthStateChange((event, session) => {
+      callback({ event, session });
+    });
+    return () => data.subscription.unsubscribe();
+  },
+
+  /** Vrai si l'email est celui du compte administrateur. */
+  isAdmin(email) {
+    return String(email || "").trim().toLowerCase() === ADMIN_EMAIL;
+  },
+
+  /** Détection « style Google » : un compte existe-t-il pour cet email ? */
+  async emailRegistered(email) {
+    const c = getClient();
+    if (!c) return { ok: false, error: authError("Supabase non configuré") };
+    try {
+      const { data, error } = await c.rpc("email_registered", {
+        p_email: String(email).trim().toLowerCase(),
+      });
+      if (error) return { ok: false, error: authError(error.message) };
+      return { ok: true, exists: !!data };
+    } catch (err) {
+      return { ok: false, error: authError(err.message || String(err)) };
+    }
+  },
+
+  /** Crée le compte avec un mot de passe aléatoire (Edge Function). */
+  async createAccount(email) {
+    return callEdge("create", { email: String(email).trim().toLowerCase() });
+  },
+
+  /** Envoie le code à 4 chiffres par email (Edge Function). */
+  async sendLoginCode(email) {
+    return callEdge("send", { email: String(email).trim().toLowerCase() });
+  },
+
+  /** Vérifie le code saisi et renvoie la session (Edge Function). */
+  async verifyLoginCode(email, code) {
+    return callEdge("verify", {
+      email: String(email).trim().toLowerCase(),
+      code: String(code).trim(),
+    });
+  },
+
+  /** Applique une session renvoyée par l'Edge Function. */
+  async setSession(session) {
+    const c = getClient();
+    if (!c) return { ok: false, error: authError("Supabase non configuré") };
+    try {
+      const { error } = await c.auth.setSession(session);
+      return { ok: !error, error: error ? authError(error.message) : null };
+    } catch (err) {
+      return { ok: false, error: authError(err.message || String(err)) };
+    }
+  },
+};
+
 export const db = {
   configured,
 

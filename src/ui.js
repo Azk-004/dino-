@@ -1,5 +1,5 @@
 import { STATIONS, QUIZ, CHAPITRES } from "./data.js";
-import { db } from "./lib/supabase.js";
+import { db, auth } from "./lib/supabase.js";
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -108,6 +108,7 @@ export function initUI() {
 
   // ---------------- Lesson reader ----------------
   function openReader(i) {
+    if (!guardAccess()) return; // leçon verrouillée tant que le compte n'est pas débloqué
     state.readerIndex = i;
     state.readerOpen = true;
     const st = STATIONS[i];
@@ -188,7 +189,7 @@ export function initUI() {
     document.querySelector("#quiz-score").textContent = 0;
     el.quizFill.style.width = "0%";
     el.quizResult.classList.add("hide");
-    renderQuiz(state, el);
+    renderQuiz(state, el, guardAccess);
   });
   document.querySelector("#quiz-restart").addEventListener("click", () => {
     // Déverrouille la page avant de remonter au début du parcours
@@ -204,7 +205,7 @@ export function initUI() {
     toastTimer = setTimeout(() => el.toast.classList.remove("show"), 4600);
   }
 
-  renderQuiz(state, el);
+  renderQuiz(state, el, guardAccess);
 
   function quizOpen() {
     return el.quiz.classList.contains("show");
@@ -263,6 +264,378 @@ export function initUI() {
   document.querySelector("#contact-open").addEventListener("click", openContact);
   document.querySelector("#contact-close").addEventListener("click", closeContact);
   contactWrap.addEventListener("click", (e) => { if (e.target === contactWrap) closeContact(); });
+
+  // ---------------- Espace personnel : connexion par email + code ----------------
+  // Connexion « email + code à 4 chiffres » : aucun mot de passe saisi. Le code
+  // est envoyé par email (Edge Function Supabase + Resend) et crée la session.
+  // Le compte admin (auth.isAdmin) se connecte directement, sans code.
+  const authWrap = $("#ui-auth");
+  const authWizard = $("#auth-wizard");
+  const authSignedIn = $("#auth-signedin");
+  const authUserEmail = $("#auth-user-email");
+  const authAvatarLetter = $("#auth-avatar-letter");
+  const authOpenBtn = document.querySelector("#auth-open");
+  const authLabelFull = authOpenBtn.querySelector(".auth-label-full");
+  const authEmail = $("#auth-email");
+  const authCodeEmail = $("#auth-code-email");
+  const authSteps = document.querySelectorAll(".auth-step");
+  const codeInputs = document.querySelectorAll(".g-code-input");
+  const statusEls = {
+    email: $("#auth-status-email"),
+    code: $("#auth-status-code"),
+  };
+  let currentUser = null;
+  let unlocked = false; // leçon débloquée (code vérifié) pour cette session
+  let pendingEmail = ""; // email en cours de connexion
+  let authSending = false;
+  let resendCooldown = 0; // secondes avant de pouvoir renvoyer le code
+
+  function stepEl(name) {
+    return document.querySelector(`.auth-step[data-step="${name}"]`);
+  }
+  function showStep(name) {
+    authSteps.forEach((s) => { s.hidden = s.dataset.step !== name; });
+    const st = stepEl(name);
+    setTimeout(() => {
+      const input = st && st.querySelector("input");
+      if (input) input.focus();
+    }, 70);
+    if (name === "code") authCodeEmail.textContent = pendingEmail;
+  }
+  function setStepStatus(name, text, kind) {
+    const box = statusEls[name];
+    if (!box) return;
+    box.textContent = text || "";
+    box.classList.toggle("ok", kind === "ok");
+    box.classList.toggle("err", kind === "err");
+  }
+  function clearStepStatuses() {
+    Object.values(statusEls).forEach((b) => {
+      if (b) { b.textContent = ""; b.classList.remove("ok", "err"); }
+    });
+  }
+
+  function openAuth(opts = {}) {
+    authWrap.classList.add("show");
+    authWrap.setAttribute("aria-hidden", "false");
+    clearStepStatuses();
+    if (!auth.configured) {
+      authWizard.hidden = false;
+      authSignedIn.hidden = true;
+      showStep("email");
+      setStepStatus("email", "L'authentification n'est pas disponible : la base Supabase n'est pas configurée.", "err");
+      return;
+    }
+    // Déjà connecté → panneau « Mon compte », ou étape code si la leçon n'est pas débloquée
+    if (currentUser) {
+      if (auth.isAdmin(currentUser.email) || unlocked) {
+        authSignedIn.hidden = false;
+        authWizard.hidden = true;
+        return;
+      }
+      pendingEmail = currentUser.email;
+      authSignedIn.hidden = true;
+      authWizard.hidden = false;
+      showStep("code");
+      requestCode(currentUser.email);
+      return;
+    }
+    authSignedIn.hidden = true;
+    authWizard.hidden = false;
+    showStep(opts.step || "email");
+  }
+  function closeAuth() {
+    authWrap.classList.remove("show");
+    authWrap.setAttribute("aria-hidden", "true");
+  }
+
+  // État connecté / déconnecté : panneau + bouton de la topbar + accès aux leçons.
+  // `event` distingue une vraie connexion (SIGNED_IN → un code sera demandé) d'une
+  // session restaurée (INITIAL_SESSION / TOKEN_REFRESHED → on garde le déblocage).
+  function applyAuthState(user, event = "") {
+    currentUser = user;
+    const signedIn = !!user;
+    const isAdmin = signedIn && auth.isAdmin(user.email);
+    if (signedIn) {
+      authLabelFull.textContent = "Mon compte";
+      authOpenBtn.title = user.email || "Mon compte";
+      authUserEmail.textContent = user.email || "";
+      authAvatarLetter.textContent = (user.email || "?")[0].toUpperCase();
+    } else {
+      authLabelFull.textContent = "Se connecter";
+      authOpenBtn.title = "Créer un compte ou se connecter";
+    }
+    if (!signedIn) {
+      unlocked = false;
+    } else if (isAdmin) {
+      unlocked = true;
+    } else if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
+      try {
+        unlocked = sessionStorage.getItem(`panneau-unlocked-${user.id}`) === "1";
+      } catch (e) { unlocked = false; }
+    } else if (event === "SIGNED_IN") {
+      unlocked = false; // nouvelle connexion → le code à 4 chiffres débloque la leçon
+    }
+  }
+
+  // Les leçons (lecteur, cours illustré, questionnaire) exigent un compte débloqué.
+  // Sans Supabase configuré, tout reste ouvert (mode démo).
+  function accessGranted() {
+    if (!auth.configured) return true;
+    if (!currentUser) return false;
+    return auth.isAdmin(currentUser.email) || unlocked;
+  }
+  function openAuthForAccess() {
+    if (currentUser) {
+      showToast("Saisissez le code reçu par email pour débloquer la leçon.");
+      openAuth({ step: "code" });
+    } else {
+      showToast("Connectez-vous pour accéder à la formation.");
+      openAuth({ step: "email" });
+    }
+  }
+  function guardAccess() {
+    if (accessGranted()) return true;
+    openAuthForAccess();
+    return false;
+  }
+
+  // Envoi du code à 4 chiffres (Edge Function), avec compte à rebours anti-spam
+  function requestCode(email, force = false) {
+    if (authSending) return;
+    if (!force && resendCooldown > 0) return; // un code est déjà en route
+    authSending = true;
+    setStepStatus("code", "Envoi du code…", "");
+    auth.sendLoginCode(email).then((r) => {
+      authSending = false;
+      if (!r.ok) {
+        setStepStatus("code", codeErrorText(r.error?.message), "err");
+        return;
+      }
+      setStepStatus("code", "", "");
+      startResendCooldown(60);
+    });
+  }
+  function startResendCooldown(seconds) {
+    resendCooldown = seconds;
+    renderResendTimer();
+  }
+  function renderResendTimer() {
+    const btn = document.querySelector("#auth-resend");
+    const timer = document.querySelector("#auth-resend-timer");
+    if (!btn || !timer) return;
+    if (resendCooldown > 0) {
+      btn.disabled = true;
+      timer.hidden = false;
+      timer.textContent = `dans ${resendCooldown} s`;
+      setTimeout(() => {
+        resendCooldown--;
+        renderResendTimer();
+      }, 1000);
+    } else {
+      btn.disabled = false;
+      timer.hidden = true;
+    }
+  }
+  function codeErrorText(code) {
+    const c = String(code || "").toUpperCase();
+    if (c === "ACCOUNT_NOT_FOUND") return "Aucun compte trouvé avec cette adresse. Cliquez sur « Créer un compte » pour continuer.";
+    if (c === "ALREADY_EXISTS") return "Un compte existe déjà avec cette adresse : un code vient d'être envoyé.";
+    if (c === "CREATE_FAILED") return "La création du compte a échoué, réessayez dans un instant.";
+    if (c === "INVALID_EMAIL") return "L'adresse email semble incorrecte.";
+    if (c === "EMAIL_NOT_CONFIGURED") return "Le service d'envoi d'email n'est pas encore configuré côté serveur.";
+    if (c === "EMAIL_SEND_FAILED") return "L'envoi du code a échoué, réessayez dans un instant.";
+    if (c === "CODE_RATE_LIMITED") return "Un code a déjà été envoyé : attendez une minute avant de renvoyer.";
+    if (c === "CODE_INVALID") return "Ce code est incorrect ou a expiré. Vérifiez l'email reçu.";
+    if (c === "DB_ERROR") return "Le service de code rencontre un problème, réessayez dans un instant.";
+    return friendlyAuthError(code);
+  }
+
+  // --- Étape 1 : l'email — détection du compte, création, connexion admin ---
+  function validEmail(email) {
+    return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  }
+  // Applique une session renvoyée par l'Edge Function (code validé ou admin)
+  function applySession(session, toastText) {
+    auth.setSession(session).then(() => {
+      unlocked = true;
+      try {
+        sessionStorage.setItem(`panneau-unlocked-${currentUser?.id || pendingEmail}`, "1");
+      } catch (e) { /* stockage indisponible */ }
+      closeAuth();
+      if (toastText) showToast(toastText);
+    });
+  }
+  function highlightCreate() {
+    const btn = document.querySelector("#auth-create");
+    if (!btn) return;
+    btn.classList.add("g-link-accent");
+    setTimeout(() => btn.classList.remove("g-link-accent"), 5000);
+  }
+  // Compte admin : vérifie/crée le compte puis connexion directe (sans code)
+  function connectAdmin(email) {
+    authSending = true;
+    setStepStatus("email", "Connexion…", "");
+    auth.createAccount(email).then((cr) => {
+      if (!cr.ok && cr.error?.message !== "ALREADY_EXISTS") {
+        authSending = false;
+        setStepStatus("email", codeErrorText(cr.error?.message), "err");
+        return;
+      }
+      auth.sendLoginCode(email).then((r) => {
+        authSending = false;
+        if (!r.ok || !r.session) {
+          setStepStatus("email", codeErrorText(r.error?.message), "err");
+          return;
+        }
+        applySession(r.session, "Connecté en tant qu'administrateur.");
+      });
+    });
+  }
+  document.querySelector("#auth-next-email").addEventListener("click", () => {
+    if (authSending) return;
+    const email = authEmail.value.trim().toLowerCase();
+    if (!validEmail(email)) {
+      setStepStatus("email", "L'adresse email semble incorrecte.", "err");
+      return;
+    }
+    pendingEmail = email;
+    if (auth.isAdmin(email)) { connectAdmin(email); return; }
+    authSending = true;
+    setStepStatus("email", "Vérification du compte…", "");
+    auth.emailRegistered(email).then((r) => {
+      authSending = false;
+      if (!r.ok) {
+        setStepStatus("email", friendlyAuthError(r.error?.message), "err");
+        return;
+      }
+      if (!r.exists) {
+        setStepStatus("email", "Aucun compte trouvé avec cette adresse. Cliquez sur « Créer un compte » pour continuer.", "err");
+        highlightCreate();
+        return;
+      }
+      clearStepStatuses();
+      showStep("code");
+      requestCode(email, true);
+    });
+  });
+  document.querySelector("#auth-create").addEventListener("click", () => {
+    if (authSending) return;
+    const email = authEmail.value.trim().toLowerCase();
+    if (!validEmail(email)) {
+      setStepStatus("email", "L'adresse email semble incorrecte.", "err");
+      return;
+    }
+    pendingEmail = email;
+    if (auth.isAdmin(email)) { connectAdmin(email); return; }
+    authSending = true;
+    setStepStatus("email", "Création du compte…", "");
+    auth.createAccount(email).then((r) => {
+      authSending = false;
+      if (!r.ok && r.error?.message !== "ALREADY_EXISTS") {
+        setStepStatus("email", codeErrorText(r.error?.message), "err");
+        return;
+      }
+      clearStepStatuses();
+      showStep("code");
+      requestCode(email, true);
+    });
+  });
+  authEmail.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.querySelector("#auth-next-email").click();
+  });
+  document.querySelector("#auth-back-code").addEventListener("click", () => {
+    clearStepStatuses();
+    showStep("email");
+  });
+
+  // --- Étape 2 : le code à 4 chiffres ---
+  function codeValue() {
+    return Array.from(codeInputs).map((i) => i.value).join("");
+  }
+  function clearCodeInputs() {
+    codeInputs.forEach((i) => { i.value = ""; i.classList.remove("filled"); });
+    if (codeInputs[0]) codeInputs[0].focus();
+  }
+  function submitCode() {
+    if (authSending) return;
+    const code = codeValue();
+    if (code.length !== 4) {
+      setStepStatus("code", "Saisissez les 4 chiffres du code reçu par email.", "err");
+      return;
+    }
+    authSending = true;
+    setStepStatus("code", "Vérification…", "");
+    auth.verifyLoginCode(pendingEmail, code).then((r) => {
+      authSending = false;
+      if (!r.ok) {
+        setStepStatus("code", codeErrorText(r.error?.message), "err");
+        clearCodeInputs();
+        return;
+      }
+      if (r.session) {
+        applySession(r.session, "Code validé — la leçon est débloquée. Bonne formation !");
+      } else {
+        unlocked = true;
+        closeAuth();
+        showToast("Code validé — la leçon est débloquée. Bonne formation !");
+      }
+    });
+  }
+  codeInputs.forEach((input, idx) => {
+    input.addEventListener("input", () => {
+      input.value = input.value.replace(/\D/g, "").slice(0, 1);
+      input.classList.toggle("filled", !!input.value);
+      if (input.value && idx < codeInputs.length - 1) codeInputs[idx + 1].focus();
+      if (codeValue().length === 4) submitCode();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Backspace" && !input.value && idx > 0) codeInputs[idx - 1].focus();
+      if (e.key === "Enter") submitCode();
+    });
+    input.addEventListener("paste", (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData.getData("text") || "").replace(/\D/g, "").slice(0, 4);
+      codeInputs.forEach((ci, i2) => {
+        ci.value = text[i2] || "";
+        ci.classList.toggle("filled", !!ci.value);
+      });
+      if (text.length === 4) submitCode();
+    });
+  });
+  document.querySelector("#auth-verify-code").addEventListener("click", submitCode);
+  document.querySelector("#auth-resend").addEventListener("click", () => {
+    if (resendCooldown > 0 || authSending) return;
+    requestCode(pendingEmail, true);
+  });
+
+  document.querySelector("#auth-close").addEventListener("click", closeAuth);
+  authWrap.addEventListener("click", (e) => { if (e.target === authWrap) closeAuth(); });
+  authOpenBtn.addEventListener("click", () => openAuth());
+  document.querySelector("#auth-signout").addEventListener("click", () => {
+    auth.signOut().then((r) => {
+      if (r.ok) {
+        unlocked = false;
+        closeAuth();
+        showToast("Vous êtes déconnecté.");
+      } else {
+        showToast("La déconnexion a échoué, réessayez.");
+      }
+    });
+  });
+  // Échap ferme le panneau (même en plein formulaire)
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && authWrap.classList.contains("show")) closeAuth();
+  });
+
+  // Restaure l'état de session au démarrage, puis écoute les changements
+  auth.getSession().then((session) => {
+    applyAuthState(session?.user || null, "INITIAL_SESSION");
+    // « Il faut se connecter avant d'accéder à la leçon » : pour un visiteur sans
+    // compte, la page de connexion s'affiche d'abord, en pleine page.
+    if (auth.configured && !session?.user) openAuth();
+  });
+  auth.onAuthChange(({ event, session }) => applyAuthState(session?.user || null, event));
   // Envoi du formulaire : enregistré dans Supabase (table contact_messages).
   // Si la base n'est pas configurée (.env absent), on garde une simulation locale
   // pour que le site reste utilisable en démonstration.
@@ -308,14 +681,27 @@ export function initUI() {
     updateGlobal, el, openReader, closeReader, readerNav,
     showToast, isReaderOpen: () => state.readerOpen,
     quizOpen, answerQuiz,
-    openContact, closeContact,
+    openContact, closeContact, openAuth, closeAuth,
+    isAuthOpen: () => authWrap.classList.contains("show"),
+    accessGranted,
     setReaderListener: (fn) => { onReaderChange = fn; },
     setQuizListener: (fn) => { onQuizChange = fn; },
     setQuizShown: (v) => { if (onQuizChange) onQuizChange(v); },
   };
 }
 
-function renderQuiz(state, el) {
+// Messages d'erreur d'authentification lisibles (messages Supabase en anglais)
+function friendlyAuthError(msg = "") {
+  const m = String(msg).toLowerCase();
+  if (m.includes("invalid login credentials")) return "Email ou mot de passe incorrect.";
+  if (m.includes("already registered")) return "Un compte existe déjà avec cette adresse email.";
+  if (m.includes("email not confirmed")) return "Adresse email non confirmée : vérifiez votre boîte mail (et les courriers indésirables).";
+  if (m.includes("too many") || m.includes("rate limit")) return "Trop de requêtes : patientez quelques minutes avant de réessayer.";
+  if (m.includes("password should be")) return "Le mot de passe doit contenir au moins 6 caractères.";
+  return msg || "Une erreur est survenue, réessayez.";
+}
+
+function renderQuiz(state, el, guard) {
   const list = el.quizList;
   list.innerHTML = "";
   QUIZ.forEach((item, i) => {
@@ -337,6 +723,7 @@ function renderQuiz(state, el) {
       b.querySelector(".opt-text").textContent = opt;
       b.addEventListener("click", () => {
         if (state.quizAnswered.has(i)) return;
+        if (guard && !guard()) return; // répondre au quiz exige un compte débloqué
         state.quizAnswered.add(i);
         const correct = oi === item.correct;
         optsBox.querySelectorAll(".quiz-opt").forEach((el2, oi2) => {
