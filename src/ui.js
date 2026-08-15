@@ -323,7 +323,7 @@ export function initUI() {
       authWizard.hidden = false;
       authSignedIn.hidden = true;
       showStep("email");
-      setStepStatus("email", "L'authentification n'est pas disponible : la base Supabase n'est pas configurée.", "err");
+      setStepStatus("email", "Connexion temporairement indisponible : les variables VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY manquent au déploiement de ce site.", "err");
       return;
     }
     // Déjà connecté → panneau « Mon compte », ou étape code si la leçon n'est pas débloquée
@@ -444,7 +444,7 @@ export function initUI() {
     if (c === "CREATE_FAILED") return "La création du compte a échoué, réessayez dans un instant.";
     if (c === "INVALID_EMAIL") return "L'adresse email semble incorrecte.";
     if (c === "EMAIL_NOT_CONFIGURED") return "Le service d'envoi d'email n'est pas encore configuré côté serveur.";
-    if (c === "EMAIL_SEND_FAILED") return "L'envoi du code a échoué, réessayez dans un instant.";
+    if (c === "EMAIL_SEND_FAILED") return "Le code n'a pas pu être envoyé à cette adresse (l'expéditeur d'email n'est pas vérifié pour elle). Contactez l'administrateur de la formation.";
     if (c === "CODE_RATE_LIMITED") return "Un code a déjà été envoyé : attendez une minute avant de renvoyer.";
     if (c === "CODE_INVALID") return "Ce code est incorrect ou a expiré. Vérifiez l'email reçu.";
     if (c === "DB_ERROR") return "Le service de code rencontre un problème, réessayez dans un instant.";
@@ -628,12 +628,15 @@ export function initUI() {
     if (e.key === "Escape" && authWrap.classList.contains("show")) closeAuth();
   });
 
-  // Restaure l'état de session au démarrage, puis écoute les changements
+  // « Il faut se connecter avant d'accéder à la leçon » : pour tout visiteur,
+  // la page de connexion s'affiche immédiatement en pleine page — que Supabase
+  // soit configuré ou non. Si les variables manquent au build, un message
+  // l'explique dans l'assistant au lieu d'un mode libre silencieux.
+  openAuth();
   auth.getSession().then((session) => {
     applyAuthState(session?.user || null, "INITIAL_SESSION");
-    // « Il faut se connecter avant d'accéder à la leçon » : pour un visiteur sans
-    // compte, la page de connexion s'affiche d'abord, en pleine page.
-    if (auth.configured && !session?.user) openAuth();
+    // Session restaurée (utilisateur déjà connecté) : on ferme l'écran.
+    if (session?.user) closeAuth();
   });
   auth.onAuthChange(({ event, session }) => applyAuthState(session?.user || null, event));
   // Envoi du formulaire : enregistré dans Supabase (table contact_messages).
