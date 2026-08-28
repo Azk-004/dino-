@@ -233,6 +233,25 @@ html[data-mode='day'] .from-night { --tw-gradient-from: #fdfaf2; }
   border-radius: 4px;
 }
 
+/* ── Mobile perf : backdrop-blur est un énorme coût GPU quand une scène 3D
+   tourne en fond. On le supprime sous 768px (les bg semi-opaques suffisent). */
+@media (max-width: 767px) {
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  /* will-change crée des couches de compositingGPU permanentes :
+     on le retire sur mobile pour libérer la mémoire VRAM. */
+  .reveal-3d,
+  .tilt-card,
+  .hscroll-track {
+    will-change: auto !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tilt-card {
     transition: none;
