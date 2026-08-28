@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import CityFallback from './CityFallback.jsx';
@@ -418,24 +418,23 @@ function Holograms({ mode, lite }) {
   return (
     <group>
       {holograms.map((h, i) => (
-        <HologramMesh hologram={h} key={i} />
+        <HologramMesh hologram={h} key={i} lite={lite} />
       ))}
     </group>
   );
 }
 
-function HologramMesh({ hologram }) {
+function HologramMesh({ hologram, lite }) {
   const ref = useRef();
   useFrame(({ clock }) => {
-    if (ref.current) {
-      const t = clock.elapsedTime * 0.08 + hologram.seed;
-      ref.current.position.x = Math.cos(hologram.angle) * hologram.radius + Math.sin(t) * 1.2;
-      ref.current.position.z = Math.sin(hologram.angle) * hologram.radius - 14 + Math.cos(t) * 1.2;
-      ref.current.position.y = hologram.y + Math.sin(t * 1.3) * 0.8;
-      const flick = 0.8 + Math.sin(clock.elapsedTime * 3 + hologram.seed) * 0.2;
-      ref.current.material.opacity = hologram.opacity * flick;
-      ref.current.rotation.y = -hologram.angle + Math.sin(t * 0.5) * 0.3;
-    }
+    if (lite || !ref.current) return; // pas d'animation hologramme sur mobile
+    const t = clock.elapsedTime * 0.08 + hologram.seed;
+    ref.current.position.x = Math.cos(hologram.angle) * hologram.radius + Math.sin(t) * 1.2;
+    ref.current.position.z = Math.sin(hologram.angle) * hologram.radius - 14 + Math.cos(t) * 1.2;
+    ref.current.position.y = hologram.y + Math.sin(t * 1.3) * 0.8;
+    const flick = 0.8 + Math.sin(clock.elapsedTime * 3 + hologram.seed) * 0.2;
+    ref.current.material.opacity = hologram.opacity * flick;
+    ref.current.rotation.y = -hologram.angle + Math.sin(t * 0.5) * 0.3;
   });
   return (
     <mesh ref={ref} position={[Math.cos(hologram.angle) * hologram.radius, hologram.y, Math.sin(hologram.angle) * hologram.radius - 14]}>
@@ -779,6 +778,7 @@ function easeInOutQuart(k) {
 }
 
 function CameraRig({ introRef, started }) {
+  const { invalidate } = useThree();
   const look = useMemo(() => new THREE.Vector3(...LOOK_REST.toArray()), []);
   const clamp = useMemo(() => new THREE.Vector3(), []);
   const now = useMemo(() => new THREE.Vector3(), []);
@@ -834,6 +834,10 @@ function CameraRig({ introRef, started }) {
     }
 
     introRef.current.p = p;
+
+    // Auto-invalide tant que l'intro est en cours OU que la caméra bouge.
+    // → le rendu s'arrête quand tout est stable = zéro coût idle.
+    if (p < 1) invalidate();
   });
   return null;
 }

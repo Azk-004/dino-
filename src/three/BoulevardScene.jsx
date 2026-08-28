@@ -1,8 +1,9 @@
-import { Suspense, useMemo, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { RoundedBox, Text, Sparkles, Stars, Cloud } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { useScrollProgress } from '../hooks/useScrollProgress.js';
 import { SceneBoundary, useWebGL } from './SceneGuard.jsx';
 import centuryGothicFont from '../assets/fonts/CenturyGothic.ttf';
@@ -139,6 +140,29 @@ function buildLayout(count) {
     });
   }
   return layout;
+}
+
+// Fusionne toutes les fenêtres d'un immeuble en une seule géométrie BufferGeometry
+// avec vertexColors → 1 draw call par immeuble au lieu de 4-16.
+function buildWindowsGeometry(windows, side, onColor, offColor) {
+  const on = new THREE.Color(onColor);
+  const off = new THREE.Color(offColor);
+  const geos = windows.map((w) => {
+    const g = new THREE.PlaneGeometry(0.15, 0.25);
+    // Rotation Y selon le côté (identique à l'ancien mesh individuel)
+    g.rotateY(side > 0 ? -Math.PI / 2 : Math.PI / 2);
+    g.translate(w.x, w.y, w.z);
+    const color = w.lit ? on : off;
+    const colors = new Float32Array(g.attributes.position.count * 3);
+    for (let k = 0; k < colors.length; k += 3) {
+      colors[k] = color.r;
+      colors[k + 1] = color.g;
+      colors[k + 2] = color.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    return g;
+  });
+  return mergeGeometries(geos);
 }
 
 function Panel({ x, y, z, scale, rotationY, tiltX, type, color, copy, threshold, seed, progressRef }) {
@@ -282,10 +306,11 @@ function Panel({ x, y, z, scale, rotationY, tiltX, type, color, copy, threshold,
   );
 }
 
-function Skyline({ mode }) {
+function Skyline({ mode, isLightweight }) {
   const config = SCENE_MODES[mode];
   const groupRef = useRef();
   useFrame(({ mouse }) => {
+    if (isLightweight) return; // parallax souris inutile sur tactile
     if (groupRef.current) {
       // Parallax léger : la skyline dérive doucement à l'inverse de la souris,
       // pour renforcer la profondeur du fond de ville.
@@ -299,10 +324,11 @@ function Skyline({ mode }) {
   // est recalculé au changement de mode. Avant, tout se régénérait au
   // hasard à chaque bascule (fenêtres qui sautent, comptage différent) -
   // c'était la source de l'incohérence visuelle entre jour et nuit.
+  const count = isLightweight ? 12 : 26;
   const buildingsGeo = useMemo(() => {
     const items = [];
-    for (let i = 0; i < 26; i += 1) {
-      const z = THREE.MathUtils.lerp(START_Z + 4, END_Z - 20, i / 25) + (Math.sin(i * 3.3) * 2);
+    for (let i = 0; i < count; i += 1) {
+      const z = THREE.MathUtils.lerp(START_Z + 4, END_Z - 20, i / (count - 1)) + (Math.sin(i * 3.3) * 2);
       const side = i % 2 === 0 ? -1 : 1;
       const dist = 9 + Math.sin(i * 1.7) * 2.2;
       const h = 2 + Math.abs(Math.sin(i * 2.1)) * 5.5;
@@ -322,7 +348,22 @@ function Skyline({ mode }) {
       items.push({ x: side * dist, z, h, w, side, windows });
     }
     return items;
-  }, []);
+  }, [count]);
+
+  // Géométrie fusionnée des fenêtres par immeuble (vertexColors → 1 draw call / bâti)
+  const windowsGeo = useMemo(() => {
+    return buildingsGeo.map((b) =>
+      buildWindowsGeometry(
+        b.windows.map((w) => ({
+          ...w,
+          lit: w.litRoll > 1 - config.windowLitChance,
+        })),
+        b.side,
+        config.windowOnColor,
+        config.windowOffColor,
+      ),
+    );
+  }, [buildingsGeo, config.windowLitChance, config.windowOnColor, config.windowOffColor]);
 
   return (
     <group ref={groupRef}>
@@ -332,16 +373,9 @@ function Skyline({ mode }) {
             <boxGeometry args={[b.w, b.h, b.w]} />
             <meshBasicMaterial color={config.buildingColor} />
           </mesh>
-          {b.windows.map((win, j) => (
-            <mesh key={j} position={[win.x, win.y, win.z]} rotation={[0, b.side > 0 ? -Math.PI/2 : Math.PI/2, 0]}>
-              <planeGeometry args={[0.15, 0.25]} />
-              <meshBasicMaterial
-                color={win.litRoll > 1 - config.windowLitChance ? config.windowOnColor : config.windowOffColor}
-                opacity={0.8}
-                transparent
-              />
-            </mesh>
-          ))}
+          <mesh geometry={windowsGeo[i]}>
+            <meshBasicMaterial vertexColors transparent opacity={0.8} />
+          </mesh>
           {i % 4 === 0 && b.h > 5 && <Beacon position={[0, b.h / 2 + 0.15, 0]} phase={i} />}
         </group>
       ))}
@@ -349,7 +383,8 @@ function Skyline({ mode }) {
   );
 }
 
-function LightTrails() {
+function LightTrails({ isLightweight }) {
+  if (isLightweight) return null;
   const trails = useMemo(() => {
     return Array.from({ length: 24 }).map(() => {
       const isOncoming = Math.random() > 0.5;
@@ -610,7 +645,8 @@ function SkyDetails({ mode, isLightweight }) {
   );
 }
 
-function CursorGlow({ mode }) {
+function CursorGlow({ mode, isLightweight }) {
+  if (isLightweight) return null;
   const config = SCENE_MODES[mode];
   const ref = useRef();
   const target = useMemo(() => new THREE.Vector3(), []);
@@ -693,7 +729,8 @@ function SceneEnvironment({ mode }) {
   );
 }
 
-function DustParticles({ mode }) {
+function DustParticles({ mode, isLightweight }) {
+  if (isLightweight) return null;
   const config = SCENE_MODES[mode];
   const count = 220;
   const positions = useMemo(() => {
@@ -752,20 +789,52 @@ function GroundAndRoad({ mode }) {
   );
 }
 
-function CameraRig({ progressRef }) {
+// Avec frameloop="demand", R3F ne re-render que si invalidate() est appelé.
+// Ce composant déclenche un render à chaque changement de scroll pour que
+// la caméra et les panneaux se mettent à jour, sans boucler en permanence.
+function ScrollInvalidator({ progressRef }) {
+  const { invalidate } = useThree();
+  const prev = useRef(-1);
+  useEffect(() => {
+    const onScroll = () => {
+      if (progressRef.current !== prev.current) {
+        prev.current = progressRef.current;
+        invalidate();
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [invalidate, progressRef]);
+  return null;
+}
+
+function CameraRig({ progressRef, isLightweight }) {
+  const { invalidate } = useThree();
   useFrame(({ camera, mouse, clock }) => {
     const p = progressRef.current;
     const z = THREE.MathUtils.lerp(START_Z, END_Z + 6, p);
-    // Respiration permanente de la caméra (indépendante du scroll) pour que
-    // la scène vive même à l'arrêt, en plus du mouvement lié à la souris.
-    const breathe = clock.elapsedTime * 0.3;
-    const x = Math.sin(p * Math.PI * 1.6) * 1.1 + mouse.x * 0.6 + Math.sin(breathe) * 0.12;
-    const y = 0.35 + Math.sin(p * Math.PI * 2.1) * 0.2 - mouse.y * 0.4 + Math.sin(breathe * 1.7) * 0.06;
+    // Respiration décorative coupée sur mobile : seul le scroll + mouse restent.
+    const x = isLightweight
+      ? Math.sin(p * Math.PI * 1.6) * 1.1 + mouse.x * 0.6
+      : Math.sin(p * Math.PI * 1.6) * 1.1 + mouse.x * 0.6 + Math.sin(clock.elapsedTime * 0.3) * 0.12;
+    const y = isLightweight
+      ? 0.35 + Math.sin(p * Math.PI * 2.1) * 0.2 - mouse.y * 0.4
+      : 0.35 + Math.sin(p * Math.PI * 2.1) * 0.2 - mouse.y * 0.4 + Math.sin(clock.elapsedTime * 0.3 * 1.7) * 0.06;
 
+    const prevX = camera.position.x;
+    const prevY = camera.position.y;
+    const prevZ = camera.position.z;
     camera.position.x += (x - camera.position.x) * 0.06;
     camera.position.y += (y - camera.position.y) * 0.06;
     camera.position.z += (z - camera.position.z) * 0.06;
     camera.lookAt(Math.sin((p + 0.05) * Math.PI * 1.6) * 1.1, 0.2, z - 8);
+
+    // Auto-invalide tant que la caméra n'a pas convergé (lerp)
+    // → le rendu s'arrête quand la caméra est stable = zéro coût CPU/GPU à l'arrêt.
+    const dx = camera.position.x - prevX;
+    const dy = camera.position.y - prevY;
+    const dz = camera.position.z - prevZ;
+    if (dx * dx + dy * dy + dz * dz > 1e-6) invalidate();
   });
   return null;
 }
@@ -797,22 +866,24 @@ export default function BoulevardScene({ className = '', mode = 'night' }) {
         dpr={isLightweight ? [1, 1] : [1, 1.5]}
         camera={{ position: [0, 0.35, START_Z], fov: 50 }}
         gl={{ antialias: false, powerPreference: "high-performance", alpha: true }}
+        frameloop="demand"
       >
         <SceneEnvironment mode={mode} />
         <SkyDome mode={mode} />
         <SkyDetails mode={mode} isLightweight={isLightweight} />
+        <ScrollInvalidator progressRef={progress} />
         
         <Suspense fallback={null}>
-          {!isLightweight && <Skyline mode={mode} />}
+          <Skyline mode={mode} isLightweight={isLightweight} />
           <StreetLamps mode={mode} />
           {!isLightweight && <Plane mode={mode} />}
           <GroundAndRoad mode={mode} />
-          <LightTrails />
-          <DustParticles mode={mode} />
+          <LightTrails isLightweight={isLightweight} />
+          <DustParticles mode={mode} isLightweight={isLightweight} />
           {layout.map((panel, i) => (
             <Panel key={i} {...panel} progressRef={progress} />
           ))}
-          <CursorGlow mode={mode} />
+          <CursorGlow mode={mode} isLightweight={isLightweight} />
           <Sparkles
             count={isLightweight ? config.sparkleCountLight : config.sparkleCount}
             scale={[14, 7, Math.abs(START_Z - END_Z) + 10]}
@@ -829,7 +900,7 @@ export default function BoulevardScene({ className = '', mode = 'night' }) {
           </EffectComposer>
           )}
         </Suspense>
-        <CameraRig progressRef={progress} />
+        <CameraRig progressRef={progress} isLightweight={isLightweight} />
         </Canvas>
       </SceneBoundary>
     </div>
