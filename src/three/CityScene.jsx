@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import CityFallback from './CityFallback.jsx';
@@ -778,7 +778,6 @@ function easeInOutQuart(k) {
 }
 
 function CameraRig({ introRef, started }) {
-  const { invalidate } = useThree();
   const look = useMemo(() => new THREE.Vector3(...LOOK_REST.toArray()), []);
   const clamp = useMemo(() => new THREE.Vector3(), []);
   const now = useMemo(() => new THREE.Vector3(), []);
@@ -834,10 +833,6 @@ function CameraRig({ introRef, started }) {
     }
 
     introRef.current.p = p;
-
-    // Auto-invalide tant que l'intro est en cours OU que la caméra bouge.
-    // → le rendu s'arrête quand tout est stable = zéro coût idle.
-    if (p < 1) invalidate();
   });
   return null;
 }

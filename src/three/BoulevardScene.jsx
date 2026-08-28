@@ -1,5 +1,5 @@
-import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Suspense, useMemo, useRef } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { RoundedBox, Text, Sparkles, Stars, Cloud } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
@@ -789,27 +789,7 @@ function GroundAndRoad({ mode }) {
   );
 }
 
-// Avec frameloop="demand", R3F ne re-render que si invalidate() est appelé.
-// Ce composant déclenche un render à chaque changement de scroll pour que
-// la caméra et les panneaux se mettent à jour, sans boucler en permanence.
-function ScrollInvalidator({ progressRef }) {
-  const { invalidate } = useThree();
-  const prev = useRef(-1);
-  useEffect(() => {
-    const onScroll = () => {
-      if (progressRef.current !== prev.current) {
-        prev.current = progressRef.current;
-        invalidate();
-      }
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [invalidate, progressRef]);
-  return null;
-}
-
 function CameraRig({ progressRef, isLightweight }) {
-  const { invalidate } = useThree();
   useFrame(({ camera, mouse, clock }) => {
     const p = progressRef.current;
     const z = THREE.MathUtils.lerp(START_Z, END_Z + 6, p);
@@ -821,20 +801,10 @@ function CameraRig({ progressRef, isLightweight }) {
       ? 0.35 + Math.sin(p * Math.PI * 2.1) * 0.2 - mouse.y * 0.4
       : 0.35 + Math.sin(p * Math.PI * 2.1) * 0.2 - mouse.y * 0.4 + Math.sin(clock.elapsedTime * 0.3 * 1.7) * 0.06;
 
-    const prevX = camera.position.x;
-    const prevY = camera.position.y;
-    const prevZ = camera.position.z;
     camera.position.x += (x - camera.position.x) * 0.06;
     camera.position.y += (y - camera.position.y) * 0.06;
     camera.position.z += (z - camera.position.z) * 0.06;
     camera.lookAt(Math.sin((p + 0.05) * Math.PI * 1.6) * 1.1, 0.2, z - 8);
-
-    // Auto-invalide tant que la caméra n'a pas convergé (lerp)
-    // → le rendu s'arrête quand la caméra est stable = zéro coût CPU/GPU à l'arrêt.
-    const dx = camera.position.x - prevX;
-    const dy = camera.position.y - prevY;
-    const dz = camera.position.z - prevZ;
-    if (dx * dx + dy * dy + dz * dz > 1e-6) invalidate();
   });
   return null;
 }
@@ -866,12 +836,10 @@ export default function BoulevardScene({ className = '', mode = 'night' }) {
         dpr={isLightweight ? [1, 1] : [1, 1.5]}
         camera={{ position: [0, 0.35, START_Z], fov: 50 }}
         gl={{ antialias: false, powerPreference: "high-performance", alpha: true }}
-        frameloop="demand"
       >
         <SceneEnvironment mode={mode} />
         <SkyDome mode={mode} />
         <SkyDetails mode={mode} isLightweight={isLightweight} />
-        <ScrollInvalidator progressRef={progress} />
         
         <Suspense fallback={null}>
           <Skyline mode={mode} isLightweight={isLightweight} />
